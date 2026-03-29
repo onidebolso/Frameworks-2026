@@ -1,0 +1,25 @@
+---
+import type { ArticleProps } from '../types';
+
+const { post }: ArticleProps = Astro.props;
+---
+
+<article class="prose prose-lg mx-auto p-6" style="background: var(--ds-bg-secondary); border: 1px solid var(--ds-border); box-shadow: 0 4px 20px var(--ds-shadow); color: var(--ds-text);">
+  <h1 class="text-3xl font-bold mb-4" style="color: var(--ds-accent);">{post.data.title}</h1>
+  {post.data.author && <p style="color: var(--ds-text-secondary);">Por: {post.data.author}</p>}
+  {post.data.date && <p style="color: var(--ds-text-secondary);">Publicado em: {post.data.date.toDateString()}</p>}
+  {post.data.tags && (
+    <div class="mb-4">
+      <strong style="color: var(--ds-text);">Tags:</strong> {post.data.tags.join(', ')}
+    </div>
+  )}
+  <div class="mt-6">
+    <post.Content />
+  </div>
+</article>
+
+<style>
+  .prose {
+    max-width: none;
+  }
+</style>

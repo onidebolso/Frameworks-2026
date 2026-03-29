@@ -1,0 +1,38 @@
+---
+import type { LayoutProps } from '../types';
+import Header from '../components/Header.astro';
+import Sidebar from '../components/Sidebar.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="pt-br">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" href="/favicon.ico" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title} - Death Stranding Wiki</title>
+		<style>
+			html, body {
+				min-height: 100vh;
+				background: var(--ds-bg) url('/death-stranding-bg.jpg') no-repeat center center fixed !important;
+				background-size: cover !important;
+			}
+		</style>
+	</head>
+	<body style="background: none !important;">
+		<Header />
+		<div class="flex">
+			<Sidebar />
+			<main style="background: rgba(24,26,27,0.92); min-height: 100vh;">
+				<slot />
+			</main>
+		</div>
+		<Footer />
+	</body>
+</html>

@@ -13,22 +13,25 @@ body {
 }
 
 body {
-  background-image: url('/death-stranding.svg');
-  background-attachment: fixed;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-color: #000;
+  background: #000;
   color: #fff;
-}
-
-html,
-body,
-#root {
   display: flex;
   flex-direction: column;
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url('/death-stranding-bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: -1;
+  filter: brightness(0.6);
+}
+
+/* layout */
 main {
   flex: 1;
   display: flex;
@@ -41,10 +44,12 @@ main {
 h1 {
   font-size: 4rem;
   text-align: center;
+  color:gray;
 }
 
 .sam-gif {
-  max-width: 600px;
+  width: 700px;
+  max-width: 100%;
   height: auto;
   border-radius: 8px;
 }
@@ -178,10 +183,6 @@ h1 {
   border-radius: 12px;
   backdrop-filter: blur(10px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto;
-  transition: all 0.3s ease;
   position: absolute;
   right: 65px;
   white-space: normal;
@@ -196,9 +197,7 @@ h1 {
 .side-dialog h4 {
   font-size: 0.9rem;
   font-weight: 600;
-  margin-top: 0;
   margin-bottom: 0.5rem;
-  color: rgba(255, 255, 255, 1);
 }
 
 .side-dialog h4:not(:first-child) {
@@ -208,7 +207,6 @@ h1 {
 .side-dialog p {
   font-size: 0.8rem;
   line-height: 1.4;
-  margin: 0;
   color: rgba(255, 255, 255, 0.85);
 }
 
@@ -223,12 +221,6 @@ h1 {
 }
 
 .right-dialog {
-  position: absolute;
   left: 65px !important;
   right: auto !important;
-  transform: translateX(-20px);
-}
-
-.right-buttons .floating-button-group:hover .right-dialog {
-  transform: translateX(0);
 }

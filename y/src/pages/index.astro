@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import ExpandableIsland from '../components/ExpandableIsland.astro';
+import ExpandableIsland from '../components/ExpandableIsland.jsx';
 import { getCollection } from 'astro:content';
 
 const buttonOrder = [
@@ -12,17 +12,7 @@ const buttonOrder = [
   'trilha-sonora',
   'multijogador',
   'entregas',
-];
-
-type SectionSlug =
-  | 'base-do-jogo'
-  | 'ideia'
-  | 'bts'
-  | 'mundo'
-  | 'bebes-bbs'
-  | 'trilha-sonora'
-  | 'multijogador'
-  | 'entregas';
+] as const;
 
 const wikiItems = await getCollection('wiki');
 const sections = buttonOrder
@@ -33,7 +23,7 @@ const sections = buttonOrder
 <Layout>
 	<main>
 		<h1>Death Stranding</h1>
-		<ExpandableIsland sections={sections} />
+		<ExpandableIsland sections={sections} client:load />
 	</main>
 
 <div class="floating-island">

@@ -1,38 +1,18 @@
 ---
-import type { LayoutProps } from '../types';
-import Header from '../components/Header.astro';
-import Sidebar from '../components/Sidebar.astro';
-import Footer from '../components/Footer.astro';
 import '../styles/global.css';
-
-const { title } = Astro.props;
 ---
 
 <!doctype html>
 <html lang="pt-br">
 	<head>
-		<meta charset="UTF-8" />
+		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="generator" content={Astro.generator} />
-		<title>{title} - Death Stranding Wiki</title>
-		<style>
-			html, body {
-				min-height: 100vh;
-				background: var(--ds-bg) url('/death-stranding-bg.jpg') no-repeat center center fixed !important;
-				background-size: cover !important;
-			}
-		</style>
+		<title>Frameworks 2026</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&display=swap" rel="stylesheet" />
 	</head>
-	<body style="background: none !important;">
-		<Header />
-		<div class="flex">
-			<Sidebar />
-			<main style="background: rgba(24,26,27,0.92); min-height: 100vh;">
-				<slot />
-			</main>
-		</div>
-		<Footer />
+	<body>
+		<slot />
 	</body>
 </html>

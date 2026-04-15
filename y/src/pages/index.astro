@@ -1,101 +1,47 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import ExpandableIsland from '../components/ExpandableIsland.astro';
+import { getCollection } from 'astro:content';
+
+const buttonOrder = [
+  'base-do-jogo',
+  'ideia',
+  'bts',
+  'mundo',
+  'bebes-bbs',
+  'trilha-sonora',
+  'multijogador',
+  'entregas',
+];
+
+type SectionSlug =
+  | 'base-do-jogo'
+  | 'ideia'
+  | 'bts'
+  | 'mundo'
+  | 'bebes-bbs'
+  | 'trilha-sonora'
+  | 'multijogador'
+  | 'entregas';
+
+const wikiItems = await getCollection('wiki');
+const sections = buttonOrder
+  .map((slug) => wikiItems.find((item) => item.id === slug))
+  .filter((item): item is (typeof wikiItems)[number] => Boolean(item));
 ---
 
 <Layout>
 	<main>
 		<h1>Death Stranding</h1>
-		
-		<div class="content-with-buttons">
-			<div class="side-buttons left-buttons">
-				<div class="floating-button-group">
-					<button class="side-button" title="Base do Jogo">
-						<span class="icon">ᖭ༏ᖫ</span>
-						<div class="side-dialog">
-							<h4>Death Stranding</h4>
-							<p>Controle Sam Porter Bridges em uma jornada pós-apocalíptica. Reconecte os EUA através de uma rede quiral, evitando entidades sobrenaturais.</p>
-							<h4>Death Stranding 2</h4>
-							<p>A aventura continua além dos EUA. Novas conexões globais, personagens e mistérios aguardam sua descoberta.</p>
-						</div>
-					</button>
-				</div>
-				
-				<div class="floating-button-group">
-					<button class="side-button" title="História">
-						<span class="icon">📖</span>
-						<div class="side-dialog">
-							<p>Uma narrativa épica em um mundo pós-apocalíptico</p>
-						</div>
-					</button>
-				</div>
-				
-				<div class="floating-button-group">
-					<button class="side-button" title="Personagens">
-						<span class="icon">💀</span>
-						<div class="side-dialog">
-							<p>Encontre personagens icônicos ao longo da jornada</p>
-						</div>
-					</button>
-				</div>
-				
-				<div class="floating-button-group">
-					<button class="side-button" title="Mundo">
-						<span class="icon">🌍</span>
-						<div class="side-dialog">
-							<p>Explore um mundo vasto e misterioso</p>
-						</div>
-					</button>
-				</div>
-			</div>
-			
-			<img src="/src/assets/SAM1.gif" alt="SAM" class="sam-gif" />
-			
-			<div class="side-buttons right-buttons">
-				<div class="floating-button-group">
-					<div class="side-dialog right-dialog">
-						<p>Gráficos de próxima geração com detalhes impressionantes</p>
-					</div>
-					<button class="side-button" title="Gráficos">
-						<span class="icon">👶</span>
-					</button>
-				</div>
-				
-				<div class="floating-button-group">
-					<div class="side-dialog right-dialog">
-						<p>Trilha sonora épica que envolve o jogador</p>
-					</div>
-					<button class="side-button" title="Áudio">
-						<span class="icon">🎵</span>
-					</button>
-				</div>
-				
-				<div class="floating-button-group">
-					<div class="side-dialog right-dialog">
-						<p>Modo multijogador cooperativo inovador</p>
-					</div>
-					<button class="side-button" title="Multijogador">
-						<span class="icon">🌐</span>
-					</button>
-				</div>
-				
-				<div class="floating-button-group">
-					<div class="side-dialog right-dialog">
-						<p>Conteúdo exclusivo e atualizações constantes</p>
-					</div>
-					<button class="side-button" title="Conteúdo">
-						<span class="icon">📦</span>
-					</button>
-				</div>
-			</div>
-		</div>
+		<ExpandableIsland sections={sections} />
 	</main>
 
-	<div class="floating-island">
-		<button class="info-button" title="Informações">
-			<span class="icon">ℹ️</span>
-		</button>
-		<div class="dialog-box">
-			<p>Bem-vindo à experiência Death Stranding. Explore o mundo conectado e descubra os segredos do jogo.</p>
-		</div>
-	</div>
+<div class="floating-island">
+<button class="info-button" title="Informações">
+<span class="icon">ℹ</span>
+</button>
+<div class="dialog-box">
+<p>Bem-vindo Death Stranding.</p>
+</div>
+</div>
 </Layout>

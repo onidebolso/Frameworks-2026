@@ -13,7 +13,7 @@ body {
 }
 
 body {
-  background-image: url('/src/assets/death-stranding.svg');
+  background-image: url('/death-stranding.svg');
   background-attachment: fixed;
   background-size: cover;
   background-position: center;
@@ -168,6 +168,7 @@ h1 {
 }
 
 .side-dialog {
+  display: none;
   min-width: 220px;
   max-width: 280px;
   max-height: 70vh;
@@ -177,9 +178,9 @@ h1 {
   border-radius: 12px;
   backdrop-filter: blur(10px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  opacity: 0;
-  transform: translateX(20px);
-  pointer-events: none;
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
   transition: all 0.3s ease;
   position: absolute;
   right: 65px;
@@ -187,10 +188,9 @@ h1 {
   overflow-y: auto;
 }
 
-.floating-button-group:hover .side-dialog {
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto;
+.side-button[aria-expanded="true"] + .side-dialog,
+.side-button[aria-expanded="true"] + .right-dialog {
+  display: block;
 }
 
 .side-dialog h4 {

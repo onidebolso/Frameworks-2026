@@ -8,6 +8,13 @@ const wikiCollection = defineCollection({
     author: z.string().optional(),
     tags: z.array(z.string()).optional(),
     date: z.date().optional(),
+    summary: z.string(),
+    details: z.array(
+      z.object({
+        heading: z.string(),
+        text: z.string(),
+      })
+    ),
   }),
 });
 

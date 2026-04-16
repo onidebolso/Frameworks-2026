@@ -47,7 +47,6 @@ h1 {
   color:gray;
 }
 
-.sam-gif,
 .sketchfab-embed-wrapper {
   width: 700px;
   max-width: 100%;
@@ -350,26 +349,10 @@ h1 {
   transform: translateY(-2px);
 }
 
-.message-body {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
 .message-emoji {
   font-size: 1.4rem;
   line-height: 1;
   transition: font-size 0.2s ease;
-}
-
-.message-text {
-  font-size: 0.95rem;
-  line-height: 1.4;
-}
-
-.message-actions {
-  display: flex;
-  gap: 0.75rem;
 }
 
 .message-popover {
@@ -402,20 +385,6 @@ h1 {
 
 .message-preview {
   color: #fff;
-}
-
-.message-actions button {
-  border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  border-radius: 999px;
-  padding: 0.45rem 0.9rem;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.message-actions button:hover {
-  background: rgba(255, 255, 255, 0.16);
 }
 
 #message-modal.hidden {

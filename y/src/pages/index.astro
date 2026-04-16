@@ -3,22 +3,10 @@ import Layout from '../layouts/Layout.astro';
 import MessageCanvas from '../components/MessageCanvas.jsx';
 import ExpandableIsland from '../components/ExpandableIsland.jsx';
 import { getCollection } from 'astro:content';
-
-const buttonOrder = [
-  'base-do-jogo',
-  'ideia',
-  'bts',
-  'mundo',
-  'bebes-bbs',
-  'trilha-sonora',
-  'multijogador',
-  'entregas',
-] as const;
+import { getOrderedWikiSections } from '../lib/wikiSections.js';
 
 const wikiItems = await getCollection('wiki');
-const sections = buttonOrder
-  .map((slug) => wikiItems.find((item) => item.id === slug))
-  .filter((item): item is (typeof wikiItems)[number] => Boolean(item));
+const sections = getOrderedWikiSections(wikiItems);
 ---
 
 <Layout>

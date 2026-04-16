@@ -1,15 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-
-const iconMap = {
-  'base-do-jogo': 'ᖭ༏ᖫ',
-  ideia: '📖',
-  bts: '💀',
-  mundo: '🌍',
-  'bebes-bbs': '👶',
-  'trilha-sonora': '🎵',
-  multijogador: '🌐',
-  entregas: '📦',
-};
+import { getIslandModel, sectionIcons } from '../lib/expandableIsland.js';
 
 export default function ExpandableIsland({ sections }) {
   const islandRef = useRef(null);
@@ -17,12 +7,7 @@ export default function ExpandableIsland({ sections }) {
 
   useEffect(() => {
     function handlePointerDown(event) {
-      if (!islandRef.current?.contains(event.target)) {
-        setActive(null);
-        return;
-      }
-
-      if (!event.target.closest('.floating-button-group')) {
+      if (!islandRef.current?.contains(event.target) || !event.target.closest('.floating-button-group')) {
         setActive(null);
       }
     }
@@ -34,51 +19,34 @@ export default function ExpandableIsland({ sections }) {
     };
   }, []);
 
-  const defaultModel = {
-    title: 'Death Stranding Sam Standing',
-    src: 'https://sketchfab.com/models/05836e1c71bb4ff3a423f59825c1764d/embed?autospin=1&autostart=1&preload=1&transparent=1',
-    label: 'Death Stranding Sam Standing',
-    author: 'FacFox',
-    authorUrl: 'https://sketchfab.com/michaeledi?utm_medium=embed&utm_campaign=share-popup&utm_content=05836e1c71bb4ff3a423f59825c1764d',
-    modelUrl: 'https://sketchfab.com/3d-models/death-stranding-sam-standing-05836e1c71bb4ff3a423f59825c1764d?utm_medium=embed&utm_campaign=share-popup&utm_content=05836e1c71bb4ff3a423f59825c1764d',
-  };
+  const currentModel = getIslandModel(active);
 
-  const btsModel = {
-    title: 'Death Stranding Sam',
-    src: 'https://sketchfab.com/models/e38963c8dfed48a6bfad2effa41ae3ff/embed?autospin=1&autostart=1&preload=1&transparent=1&ui_hint=0',
-    label: 'Death Stranding Sam',
-    author: 'Justiniano Filipe Terroso',
-    authorUrl: 'https://sketchfab.com/justin_phillips?utm_medium=embed&utm_campaign=share-popup&utm_content=e38963c8dfed48a6bfad2effa41ae3ff',
-    modelUrl: 'https://sketchfab.com/3d-models/death-stranding-sam-e38963c8dfed48a6bfad2effa41ae3ff?utm_medium=embed&utm_campaign=share-popup&utm_content=e38963c8dfed48a6bfad2effa41ae3ff',
-  };
-
-  const currentModel = active === 'bts' ? btsModel : defaultModel;
-
-  const handleClick = (id) => {
-    setActive(active === id ? null : id);
+  const handleToggleSection = (id) => {
+    setActive((current) => (current === id ? null : id));
   };
 
   const renderSection = (section, right = false) => {
+    const { id, data } = section;
     const dialogClass = right ? 'side-dialog right-dialog' : 'side-dialog';
-    const isOpen = active === section.id;
+    const isOpen = active === id;
 
     return (
-      <div className="floating-button-group" key={section.id}>
+      <div className="floating-button-group" key={id}>
         <button
           className="side-button"
           type="button"
-          aria-label={section.data.title}
+          aria-label={data.title}
           aria-expanded={isOpen}
-          aria-controls={`${section.id}-panel`}
-          onClick={() => handleClick(section.id)}
+          aria-controls={`${id}-panel`}
+          onClick={() => handleToggleSection(id)}
         >
-          <span className="icon">{iconMap[section.id] ?? '•'}</span>
+          <span className="icon">{sectionIcons[id] ?? '•'}</span>
         </button>
-        <div id={`${section.id}-panel`} className={dialogClass} role="region">
-          <h4>{section.data.title}</h4>
-          <p>{section.data.summary}</p>
-          {section.data.details.map((item) => (
-            <div key={`${section.id}-${item.heading}`}>
+        <div id={`${id}-panel`} className={dialogClass} role="region">
+          <h4>{data.title}</h4>
+          <p>{data.summary}</p>
+          {data.details.map((item) => (
+            <div key={`${id}-${item.heading}`}>
               <h4>{item.heading}</h4>
               <p>{item.text}</p>
             </div>

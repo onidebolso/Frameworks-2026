@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient.js';
-
-const initialForm = { text: '', emoji: '' };
-const baseMessageSize = 48;
-const likeGrowthInPixels = 5;
-const dislikeShrinkInPixels = 2;
-const maxGrowthLikes = 20;
-const minimumMessageSize = 40;
+import {
+  applyRealtimeMessageChange,
+  getBoardCoordinates,
+  getMessageMetrics,
+  getPopoverCoordinates,
+  initialMessageForm,
+  messageBoardCopy,
+  removeMessage,
+  shouldIgnoreOutsideClick,
+  shouldIgnorePlacementClick,
+  updateMessageField,
+} from '../lib/messageBoard.js';
 
 export default function MessageCanvas() {
   const boardRef = useRef(null);
@@ -15,7 +20,7 @@ export default function MessageCanvas() {
   const [modalOpen, setModalOpen] = useState(false);
   const [clickPos, setClickPos] = useState({ x: 0, y: 0 });
   const [popoverPos, setPopoverPos] = useState({ x: 0, y: 0 });
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(initialMessageForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [selectedMessage, setSelectedMessage] = useState(null);
@@ -30,18 +35,7 @@ export default function MessageCanvas() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
         (payload) => {
-          setMessages((current) => {
-            if (payload.eventType === 'INSERT') {
-              return [...current, payload.new];
-            }
-            if (payload.eventType === 'UPDATE') {
-              return current.map((item) => (item.id === payload.new.id ? payload.new : item));
-            }
-            if (payload.eventType === 'DELETE') {
-              return current.filter((item) => item.id !== payload.old.id);
-            }
-            return current;
-          });
+          setMessages((current) => applyRealtimeMessageChange(current, payload));
         }
       )
       .subscribe();
@@ -53,19 +47,7 @@ export default function MessageCanvas() {
 
   useEffect(() => {
     function handlePointerDown(event) {
-      if (event.target.closest('.message')) {
-        return;
-      }
-
-      if (event.target.closest('.message-popover')) {
-        return;
-      }
-
-      if (event.target.closest('.modal-card')) {
-        return;
-      }
-
-      if (event.target.closest('.placement-toggle')) {
+      if (shouldIgnoreOutsideClick(event.target)) {
         return;
       }
 
@@ -98,12 +80,9 @@ export default function MessageCanvas() {
   function openMessage(message, event) {
     const boardRect = boardRef.current?.getBoundingClientRect();
     const buttonRect = event.currentTarget.getBoundingClientRect();
-    const x = boardRect ? Math.round(buttonRect.left - boardRect.left + buttonRect.width / 2) : 0;
-    const y = boardRect ? Math.round(buttonRect.top - boardRect.top) : 0;
 
-    setPopoverPos({ x, y });
+    setPopoverPos(getPopoverCoordinates(boardRect, buttonRect));
     setSelectedMessage(message);
-    setForm({ text: message.text, emoji: message.emoji });
     setModalMode('view');
     setError(null);
     setModalOpen(true);
@@ -114,22 +93,15 @@ export default function MessageCanvas() {
       return;
     }
 
-    if (
-      event.target.closest('.message') ||
-      event.target.closest('.modal-card') ||
-      event.target.closest('.modal-actions') ||
-      event.target.closest('button') ||
-      event.target.closest('input')
-    ) {
+    if (shouldIgnorePlacementClick(event.target)) {
       return;
     }
 
     const rect = event.currentTarget.getBoundingClientRect();
-    const x = Math.round(event.clientX - rect.left);
-    const y = Math.round(event.clientY - rect.top);
+    const nextClickPos = getBoardCoordinates(rect, event);
 
-    setClickPos({ x, y });
-    setForm(initialForm);
+    setClickPos(nextClickPos);
+    setForm(initialMessageForm);
     setSelectedMessage(null);
     setModalMode('create');
     setError(null);
@@ -173,7 +145,7 @@ export default function MessageCanvas() {
     if (error) {
       setError(error.message);
     } else {
-      setForm(initialForm);
+      setForm(initialMessageForm);
       setModalOpen(false);
       setPlacementMode(false);
     }
@@ -187,9 +159,7 @@ export default function MessageCanvas() {
 
     const nextValue = message[field] + 1;
 
-    setMessages((current) =>
-      current.map((item) => (item.id === id ? { ...item, [field]: nextValue } : item))
-    );
+    setMessages((current) => updateMessageField(current, id, field, nextValue));
     setSelectedMessage((current) =>
       current?.id === id ? { ...current, [field]: nextValue } : current
     );
@@ -200,9 +170,7 @@ export default function MessageCanvas() {
       .eq('id', id);
 
     if (error) {
-      setMessages((current) =>
-        current.map((item) => (item.id === id ? { ...item, [field]: message[field] } : item))
-      );
+      setMessages((current) => updateMessageField(current, id, field, message[field]));
       setSelectedMessage((current) =>
         current?.id === id ? { ...current, [field]: message[field] } : current
       );
@@ -221,7 +189,7 @@ export default function MessageCanvas() {
       return;
     }
 
-    setMessages((current) => current.filter((item) => item.id !== id));
+    setMessages((current) => removeMessage(current, id));
 
     if (selectedMessage?.id === id) {
       closeModal();
@@ -236,19 +204,9 @@ export default function MessageCanvas() {
     setModalMode('create');
   }
 
-  function getMessageMetrics(message) {
-    const likes = message.likes ?? 0;
-    const dislikes = message.dislikes ?? 0;
-    const effectiveLikes = Math.min(likes, maxGrowthLikes);
-    const messageSize = Math.max(
-      minimumMessageSize,
-      baseMessageSize + effectiveLikes * likeGrowthInPixels - dislikes * dislikeShrinkInPixels
-    );
-    const emojiSize = Math.max(1.15, 1.4 + effectiveLikes * 0.18 - dislikes * 0.06);
-
-    return {
-      messageSize,
-      emojiSize,
+  function updateFormField(field) {
+    return (event) => {
+      setForm((current) => ({ ...current, [field]: event.target.value }));
     };
   }
 
@@ -263,8 +221,8 @@ export default function MessageCanvas() {
           <h2>Mensagens do mapa</h2>
           <p>
             {placementMode
-              ? 'Clique em um ponto da página para posicionar a sua mensagem.'
-              : 'Explore o modelo e as ilhas normalmente. Ative o modo de posicionamento para deixar uma mensagem.'}
+              ? messageBoardCopy.placement
+              : messageBoardCopy.idle}
           </p>
         </div>
         <div className="message-board-info">
@@ -282,38 +240,36 @@ export default function MessageCanvas() {
       {error ? <p className="message-board-error">{error}</p> : null}
 
       <div id="message-canvas" className="message-canvas">
-        {messages.map((message) => (
-          (() => {
-            const { messageSize, emojiSize } = getMessageMetrics(message);
+        {messages.map((message) => {
+          const { messageSize, emojiSize } = getMessageMetrics(message);
 
-            return (
-              <div
-                key={message.id}
-                className="message-marker"
-                style={{ left: `${message.x}px`, top: `${message.y}px` }}
-              >
-            <button
-              type="button"
-              className="message"
-              style={{
-                width: `${messageSize}px`,
-                height: `${messageSize}px`,
-                minWidth: `${messageSize}px`,
-                minHeight: `${messageSize}px`,
-              }}
-              onClick={(event) => {
-                event.stopPropagation();
-                openMessage(message, event);
-              }}
+          return (
+            <div
+              key={message.id}
+              className="message-marker"
+              style={{ left: `${message.x}px`, top: `${message.y}px` }}
             >
-                  <span className="message-emoji" style={{ fontSize: `${emojiSize}rem` }}>
-                    {message.emoji}
-                  </span>
-                </button>
-              </div>
-            );
-          })()
-        ))}
+              <button
+                type="button"
+                className="message"
+                style={{
+                  width: `${messageSize}px`,
+                  height: `${messageSize}px`,
+                  minWidth: `${messageSize}px`,
+                  minHeight: `${messageSize}px`,
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openMessage(message, event);
+                }}
+              >
+                <span className="message-emoji" style={{ fontSize: `${emojiSize}rem` }}>
+                  {message.emoji}
+                </span>
+              </button>
+            </div>
+          );
+        })}
 
       </div>
 
@@ -343,62 +299,42 @@ export default function MessageCanvas() {
       {modalMode === 'create' && (
         <div id="message-modal" className={modalOpen ? 'modal-open' : 'hidden'}>
           <div className="modal-card">
-          <div className="modal-header">
-            <strong>{modalMode === 'create' ? 'Nova caixa de diálogo' : 'Mensagem'}</strong>
-            <button type="button" className="modal-close" onClick={closeModal}>
-              ×
-            </button>
+            <div className="modal-header">
+              <strong>Nova caixa de diálogo</strong>
+              <button type="button" className="modal-close" onClick={closeModal}>
+                ×
+              </button>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Digite sua mensagem..."
+              value={form.text}
+              onChange={updateFormField('text')}
+            />
+
+            <input
+              type="text"
+              placeholder="Emoji (ex: 👍, 💀, ❤️)"
+              maxLength="2"
+              value={form.emoji}
+              onChange={updateFormField('emoji')}
+            />
+
+            <div className="modal-actions">
+              <button type="button" className="button-primary" onClick={saveMessage} disabled={saving}>
+                {saving ? 'Salvando...' : 'Salvar mensagem'}
+              </button>
+              <button type="button" className="button-secondary" onClick={closeModal}>
+                Cancelar
+              </button>
+            </div>
+
+            <p className="modal-hint">Posição: {clickPos.x}px, {clickPos.y}px</p>
+
+            {error ? <p className="modal-error">{error}</p> : null}
           </div>
-
-          {modalMode === 'create' ? (
-            <>
-              <input
-                type="text"
-                placeholder="Digite sua mensagem..."
-                value={form.text}
-                onChange={(event) => setForm({ ...form, text: event.target.value })}
-              />
-
-              <input
-                type="text"
-                placeholder="Emoji (ex: 👍, 💀, ❤️)"
-                maxLength="2"
-                value={form.emoji}
-                onChange={(event) => setForm({ ...form, emoji: event.target.value })}
-              />
-
-              <div className="modal-actions">
-                <button type="button" className="button-primary" onClick={saveMessage} disabled={saving}>
-                  {saving ? 'Salvando...' : 'Salvar mensagem'}
-                </button>
-                <button type="button" className="button-secondary" onClick={closeModal}>
-                  Cancelar
-                </button>
-              </div>
-
-              <p className="modal-hint">Posição: {clickPos.x}px, {clickPos.y}px</p>
-            </>
-          ) : (
-            <>
-              <div className="message-preview">
-                <span className="message-emoji preview">{selectedMessage?.emoji}</span>
-                <p>{selectedMessage?.text}</p>
-              </div>
-
-              <div className="modal-actions">
-                <button type="button" className="button-primary" onClick={() => vote(selectedMessage.id, 'likes')}>
-                  👍 {selectedMessage?.likes}
-                </button>
-                <button type="button" className="button-secondary" onClick={() => vote(selectedMessage.id, 'dislikes')}>
-                  👎 {selectedMessage?.dislikes}
-                </button>
-              </div>
-            </>
-          )}
-
-          {error ? <p className="modal-error">{error}</p> : null}
         </div>
-      </div>
       )}
     </section>
   );

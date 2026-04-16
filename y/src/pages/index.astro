@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import MessageCanvas from '../components/MessageCanvas.jsx';
 import ExpandableIsland from '../components/ExpandableIsland.jsx';
 import { getCollection } from 'astro:content';
 
@@ -21,17 +22,19 @@ const sections = buttonOrder
 ---
 
 <Layout>
-	<main>
-		<h1>Death Stranding</h1>
-		<ExpandableIsland sections={sections} client:load />
-	</main>
+  <main>
+    <h1>Death Stranding</h1>
+    <ExpandableIsland sections={sections} client:load />
+  </main>
 
-<div class="floating-island">
-<button class="info-button" title="Informações">
-<span class="icon">ℹ</span>
-</button>
-<div class="dialog-box">
-<p>Bem-vindo Death Stranding.</p>
-</div>
-</div>
+  <div class="floating-island">
+    <button class="info-button" title="Informações">
+      <span class="icon">ℹ</span>
+    </button>
+    <div class="dialog-box">
+      <p>Bem-vindo Death Stranding.</p>
+    </div>
+  </div>
+
+  <MessageCanvas client:load />
 </Layout>

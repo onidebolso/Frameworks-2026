@@ -218,7 +218,7 @@ export default function MessageCanvas() {
     >
       <div className="message-board-header">
         <div>
-          <h2>Mensagens do mapa</h2>
+          <h2>Mensagens no mapa</h2>
           <p>
             {placementMode
               ? messageBoardCopy.placement

@@ -1,7 +1,7 @@
 export const initialMessageForm = Object.freeze({ text: '', emoji: '' });
 
 export const messageBoardCopy = Object.freeze({
-  idle: 'Explore o modelo e as ilhas normalmente. Ative o modo de posicionamento para deixar uma mensagem.',
+  idle: 'Explore o modelo e as ilhas normalmente. Clique em nova mensagem para deixar uma mensagem.',
   placement: 'Clique em um ponto da página para posicionar a sua mensagem.',
 });
 

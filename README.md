@@ -41,6 +41,8 @@ O projeto mistura uma experiência de wiki com elementos interativos. O usuário
 
 O app Astro fica dentro da pasta [y/package.json](y/package.json).
 
+Tambem existe uma segunda base em [x/package.json](x/package.json), criada com Vue + Vite para testes comparativos de performance e arquitetura no mesmo repositório. Essa variante já replica o layout principal, a wiki lateral, o modelo 3D, o mural com Supabase e o mapa com OpenStreetMap.
+
 - [y/src/pages/index.astro](y/src/pages/index.astro): página principal
 - [y/src/components/ExpandableIsland.jsx](y/src/components/ExpandableIsland.jsx): ilhas laterais e integração com o modelo 3D
 - [y/src/components/MessageCanvas.jsx](y/src/components/MessageCanvas.jsx): mural de mensagens, modal, votos, mapa e popovers
@@ -49,6 +51,7 @@ O app Astro fica dentro da pasta [y/package.json](y/package.json).
 - [y/src/lib/supabaseClient.js](y/src/lib/supabaseClient.js): cliente Supabase
 - [y/src/content/wiki](y/src/content/wiki): conteúdos da wiki em Markdown
 - [y/supabase-create-table.sql](y/supabase-create-table.sql): schema SQL, funções e policies do Supabase
+- [x](x): variante em Vue + Vite usada para benchmark e comparação direta com a versão Astro
 
 ## Requisitos
 
@@ -98,6 +101,15 @@ npm run dev
 npm run build
 npm run preview
 npm run astro -- --help
+```
+
+Para a base Vue + Vite em [x](x):
+
+```bash
+cd x
+npm install
+npm run dev
+npm run build
 ```
 
 ## Fluxo de desenvolvimento

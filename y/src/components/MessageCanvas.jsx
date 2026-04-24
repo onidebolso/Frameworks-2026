@@ -1,33 +1,103 @@
 import { useEffect, useRef, useState } from 'react';
+import 'ol/ol.css';
 import { supabase } from '../lib/supabaseClient.js';
 import {
   applyRealtimeMessageChange,
-  getBoardCoordinates,
+  canDeleteMessage,
+  formatMessageIp,
+  getMessageAuthorLabel,
   getMessageMetrics,
-  getPopoverCoordinates,
   initialMessageForm,
   messageBoardCopy,
   removeMessage,
   shouldIgnoreOutsideClick,
-  shouldIgnorePlacementClick,
   updateMessageField,
 } from '../lib/messageBoard.js';
+import {
+  attachMapResizeHandling,
+  createOpenStreetMap,
+  flyToMessage,
+  formatCoordinate,
+  getMapEventCoordinates,
+  hasMapCoordinates,
+  loadMapModules,
+  syncMessageMarkers,
+} from '../service/mapService.js';
+
+const pagePlacementIgnoreSelectors = [
+  '.message-details-card',
+  '.message-board-header',
+  '.message-map-panel',
+  '.modal-card',
+  '.floating-island',
+  '.side-dialog',
+  '.side-button',
+  '.info-button',
+  'button',
+  'input',
+  'textarea',
+  'a',
+  'iframe',
+];
+
+const emojiLibrary = [
+  '😀', '😂', '😍', '🥹', '😎', '🤔', '😭', '😡',
+  '👍', '👎', '👏', '🙌', '💀', '🔥', '✨', '⭐',
+  '❤️', '💛', '💙', '💜', '🖤', '💥', '💬', '📍',
+  '🌍', '🗺️', '🎮', '🎵', '🌧️', '⚡', '☠️', '🚀',
+];
+
+function getFriendlySupabaseErrorMessage(error) {
+  const message = error?.message || '';
+
+  if (
+    message.includes("Could not find the 'latitude' column of 'messages' in the schema cache") ||
+    message.includes("Could not find the 'longitude' column of 'messages' in the schema cache")
+  ) {
+    return 'O Supabase ainda nao reconhece as colunas latitude/longitude. Rode o SQL atualizado em y/supabase-create-table.sql e depois recarregue o schema cache.';
+  }
+
+  return message;
+}
 
 export default function MessageCanvas() {
-  const boardRef = useRef(null);
+  const mapContainerRef = useRef(null);
+  const mapRef = useRef(null);
+  const mapModulesRef = useRef(null);
+  const markerOverlaysRef = useRef([]);
+  const cleanupMapResizeRef = useRef(null);
+  const placementModeRef = useRef(null);
+  const selectedMessageRef = useRef(null);
   const [messages, setMessages] = useState([]);
-  const [placementMode, setPlacementMode] = useState(false);
+  const [placementMode, setPlacementMode] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [clickPos, setClickPos] = useState({ x: 0, y: 0 });
-  const [popoverPos, setPopoverPos] = useState({ x: 0, y: 0 });
+  const [selectedCoordinates, setSelectedCoordinates] = useState(null);
+  const [selectedPagePosition, setSelectedPagePosition] = useState(null);
+  const [draftSurface, setDraftSurface] = useState(null);
   const [form, setForm] = useState(initialMessageForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [ipError, setIpError] = useState(null);
+  const [currentIp, setCurrentIp] = useState('');
   const [selectedMessage, setSelectedMessage] = useState(null);
+  const [selectedMessageAnchor, setSelectedMessageAnchor] = useState(null);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
 
   useEffect(() => {
+    placementModeRef.current = placementMode;
+  }, [placementMode]);
+
+  useEffect(() => {
+    selectedMessageRef.current = selectedMessage;
+  }, [selectedMessage]);
+
+  useEffect(() => {
+    let isMounted = true;
+
     fetchMessages();
+    fetchCurrentIp();
+    initializeMap();
 
     const channel = supabase
       .channel('messages-realtime')
@@ -41,27 +111,136 @@ export default function MessageCanvas() {
       .subscribe();
 
     return () => {
+      isMounted = false;
       supabase.removeChannel(channel);
+
+      if (mapRef.current) {
+        cleanupMapResizeRef.current?.();
+        cleanupMapResizeRef.current = null;
+        mapRef.current.setTarget(undefined);
+        mapRef.current = null;
+        mapModulesRef.current = null;
+        markerOverlaysRef.current = [];
+      }
     };
+
+    async function initializeMap() {
+      if (!mapContainerRef.current || mapRef.current || !isMounted) {
+        return;
+      }
+
+      const modules = await loadMapModules();
+
+      if (!mapContainerRef.current || mapRef.current || !isMounted) {
+        return;
+      }
+
+      const { map } = createOpenStreetMap(mapContainerRef.current, modules);
+
+      mapModulesRef.current = modules;
+      mapRef.current = map;
+      cleanupMapResizeRef.current = attachMapResizeHandling(map, mapContainerRef.current);
+
+      map.on('moveend', () => {
+        const currentMessage = selectedMessageRef.current;
+
+        if (!currentMessage || !shouldRenderOnMap(currentMessage)) {
+          return;
+        }
+
+        const anchor = getMapMessageAnchor(currentMessage, map, modules);
+        setSelectedMessageAnchor(anchor);
+      });
+
+      map.on('click', (event) => {
+        if (placementModeRef.current !== 'map') {
+          return;
+        }
+
+        openCreateModal('map', {
+          coordinates: getMapEventCoordinates(event, modules),
+        });
+      });
+    }
   }, []);
 
   useEffect(() => {
-    function handlePointerDown(event) {
+    if (placementMode !== 'page') {
+      return undefined;
+    }
+
+    function handlePagePlacement(event) {
+      if (shouldIgnorePagePlacement(event.target)) {
+        return;
+      }
+
+      openCreateModal('page', {
+        pagePosition: getPagePlacementPosition(event),
+      });
+    }
+
+    document.addEventListener('pointerdown', handlePagePlacement);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePagePlacement);
+    };
+  }, [placementMode]);
+
+  useEffect(() => {
+    if (!mapRef.current || !mapModulesRef.current) {
+      return;
+    }
+
+    syncMessageMarkers({
+      map: mapRef.current,
+      modules: mapModulesRef.current,
+      markerOverlaysRef,
+      messages: messages.filter(shouldRenderOnMap),
+      getMessageMetrics,
+      getMessageAuthorLabel,
+      onMarkerClick: openMessage,
+    });
+  }, [messages]);
+
+  useEffect(() => {
+    if (!selectedMessage) {
+      return;
+    }
+
+    const nextSelectedMessage = messages.find((item) => item.id === selectedMessage.id);
+
+    if (!nextSelectedMessage) {
+      setSelectedMessage(null);
+      return;
+    }
+
+    if (nextSelectedMessage !== selectedMessage) {
+      setSelectedMessage(nextSelectedMessage);
+    }
+  }, [messages, selectedMessage]);
+
+  useEffect(() => {
+    if (modalMode !== 'view' || !selectedMessage) {
+      return undefined;
+    }
+
+    function handleOutsidePointerDown(event) {
       if (shouldIgnoreOutsideClick(event.target)) {
         return;
       }
 
-      if (modalOpen || selectedMessage) {
-        closeModal();
-      }
+      closeModal();
     }
 
-    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('pointerdown', handleOutsidePointerDown);
 
     return () => {
-      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('pointerdown', handleOutsidePointerDown);
     };
-  }, [modalOpen, selectedMessage]);
+  }, [modalMode, selectedMessage]);
+
+  const canDeleteSelectedMessage = canDeleteMessage(selectedMessage, currentIp);
+  const pageMessages = messages.filter(shouldRenderOnPage);
 
   async function fetchMessages() {
     const { data, error } = await supabase
@@ -70,52 +249,81 @@ export default function MessageCanvas() {
       .order('created_at', { ascending: true });
 
     if (error) {
-      setError(error.message);
+      setError(getFriendlySupabaseErrorMessage(error));
       return;
     }
 
     setMessages(data || []);
   }
 
-  function openMessage(message, event) {
-    const boardRect = boardRef.current?.getBoundingClientRect();
-    const buttonRect = event.currentTarget.getBoundingClientRect();
+  async function fetchCurrentIp() {
+    const { data, error } = await supabase.rpc('request_ip');
 
-    setPopoverPos(getPopoverCoordinates(boardRect, buttonRect));
-    setSelectedMessage(message);
-    setModalMode('view');
-    setError(null);
-    setModalOpen(true);
+    if (error || !data) {
+      setIpError('Nao foi possivel identificar seu IP. Rode o SQL atualizado no Supabase antes de criar ou excluir mensagens.');
+      return;
+    }
+
+    setCurrentIp(data);
+    setIpError(null);
   }
 
-  function handleBoardClick(event) {
-    if (!placementMode) {
-      return;
-    }
-
-    if (shouldIgnorePlacementClick(event.target)) {
-      return;
-    }
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const nextClickPos = getBoardCoordinates(rect, event);
-
-    setClickPos(nextClickPos);
-    setForm(initialMessageForm);
+  function clearSelectedMessageState() {
     setSelectedMessage(null);
+    setSelectedMessageAnchor(null);
+  }
+
+  function openCreateModal(surface, { coordinates = null, pagePosition = null } = {}) {
+    clearSelectedMessageState();
+    setSelectedCoordinates(coordinates);
+    setSelectedPagePosition(pagePosition);
+    setDraftSurface(surface);
+    setForm(initialMessageForm);
     setModalMode('create');
     setError(null);
-    setPlacementMode(false);
+    setPlacementMode(null);
+    setEmojiPickerOpen(false);
     setModalOpen(true);
   }
 
-  function togglePlacementMode() {
+  function getMessageAnchor(message) {
+    if (shouldRenderOnPage(message)) {
+      return {
+        x: Number(message.x ?? 0),
+        y: Number(message.y ?? 0),
+      };
+    }
+
+    if (mapRef.current && mapModulesRef.current && hasMapCoordinates(message)) {
+      return getMapMessageAnchor(message, mapRef.current, mapModulesRef.current);
+    }
+
+    return null;
+  }
+
+  function openMessage(message) {
+    setSelectedMessage(message);
+    setSelectedMessageAnchor(getMessageAnchor(message));
+    setModalMode('view');
+    setError(null);
+    setModalOpen(false);
+    setEmojiPickerOpen(false);
+
+    if (mapRef.current && mapModulesRef.current && hasMapCoordinates(message)) {
+      flyToMessage(mapRef.current, mapModulesRef.current, message);
+    }
+  }
+
+  function togglePlacementMode(nextMode) {
     setPlacementMode((current) => {
-      const nextValue = !current;
+      const nextValue = current === nextMode ? null : nextMode;
 
       if (nextValue) {
         setModalOpen(false);
-        setSelectedMessage(null);
+        clearSelectedMessageState();
+        setSelectedCoordinates(null);
+        setSelectedPagePosition(null);
+        setDraftSurface(nextMode);
         setModalMode('create');
         setError(null);
       }
@@ -130,24 +338,46 @@ export default function MessageCanvas() {
       return;
     }
 
+    if (!currentIp) {
+      setError(ipError || 'Nao foi possivel identificar seu IP.');
+      return;
+    }
+
+    if (!draftSurface) {
+      setError('Escolha se a mensagem sera criada na pagina ou no mapa.');
+      return;
+    }
+
+    if (draftSurface === 'page' && !selectedPagePosition) {
+      setError('Escolha um ponto da pagina antes de salvar a mensagem.');
+      return;
+    }
+
+    if (draftSurface === 'map' && !selectedCoordinates) {
+      setError('Clique em um ponto do mapa antes de salvar a mensagem.');
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
     const { error } = await supabase.from('messages').insert({
       text: form.text.trim(),
       emoji: form.emoji.trim() || '💬',
-      x: clickPos.x,
-      y: clickPos.y,
+      author_name: form.username.trim() || null,
+      author_ip: currentIp,
+      latitude: draftSurface === 'map' ? selectedCoordinates.lat : null,
+      longitude: draftSurface === 'map' ? selectedCoordinates.lng : null,
+      x: draftSurface === 'page' ? selectedPagePosition.x : -1,
+      y: draftSurface === 'page' ? selectedPagePosition.y : -1,
       likes: 0,
       dislikes: 0,
     });
 
     if (error) {
-      setError(error.message);
+      setError(getFriendlySupabaseErrorMessage(error));
     } else {
-      setForm(initialMessageForm);
-      setModalOpen(false);
-      setPlacementMode(false);
+      closeModal();
     }
 
     setSaving(false);
@@ -174,18 +404,26 @@ export default function MessageCanvas() {
       setSelectedMessage((current) =>
         current?.id === id ? { ...current, [field]: message[field] } : current
       );
-      setError(error.message);
+      setError(getFriendlySupabaseErrorMessage(error));
     }
   }
 
   async function deleteMessage(id) {
+    const message = messages.find((item) => item.id === id);
+    if (!message) return;
+
+    if (!canDeleteMessage(message, currentIp)) {
+      setError('Apenas o criador da mensagem pode excluí-la.');
+      return;
+    }
+
     const confirmed = window.confirm('Tem certeza que deseja remover esta mensagem?');
     if (!confirmed) return;
 
     const { error } = await supabase.from('messages').delete().eq('id', id);
 
     if (error) {
-      setError(error.message);
+      setError(getFriendlySupabaseErrorMessage(error));
       return;
     }
 
@@ -198,9 +436,14 @@ export default function MessageCanvas() {
 
   function closeModal() {
     setModalOpen(false);
-    setPlacementMode(false);
+    setPlacementMode(null);
+    setSelectedCoordinates(null);
+    setSelectedPagePosition(null);
+    setDraftSurface(null);
+    setForm(initialMessageForm);
     setError(null);
-    setSelectedMessage(null);
+    clearSelectedMessageState();
+    setEmojiPickerOpen(false);
     setModalMode('create');
   }
 
@@ -210,14 +453,158 @@ export default function MessageCanvas() {
     };
   }
 
+  function selectEmoji(emoji) {
+    setForm((current) => ({ ...current, emoji }));
+    setEmojiPickerOpen(false);
+  }
+
+  function shouldIgnorePagePlacement(target) {
+    return pagePlacementIgnoreSelectors.some((selector) => target.closest(selector));
+  }
+
+  function getPagePlacementPosition(event) {
+    return {
+      x: Math.max(0, Math.round(event.clientX)),
+      y: Math.max(0, Math.round(event.clientY)),
+    };
+  }
+
+  function getMessagePositionStyle(message) {
+    const x = Math.max(0, Number(message.x ?? 0));
+    const y = Math.max(0, Number(message.y ?? 0));
+
+    return {
+      left: `${x}px`,
+      top: `${y}px`,
+    };
+  }
+
+  function shouldRenderOnPage(message) {
+    return Number(message?.x) >= 0 && Number(message?.y) >= 0;
+  }
+
+  function shouldRenderOnMap(message) {
+    return hasMapCoordinates(message) && (Number(message?.x) < 0 || Number(message?.y) < 0);
+  }
+
+  function getMapMessageAnchor(message, map, modules) {
+    if (!hasMapCoordinates(message)) {
+      return null;
+    }
+
+    const targetElement = map.getTargetElement();
+
+    if (!targetElement) {
+      return null;
+    }
+
+    const pixel = map.getPixelFromCoordinate(
+      modules.fromLonLat([Number(message.longitude), Number(message.latitude)])
+    );
+
+    if (!pixel) {
+      return null;
+    }
+
+    const rect = targetElement.getBoundingClientRect();
+
+    return {
+      x: Math.round(rect.left + pixel[0]),
+      y: Math.round(rect.top + pixel[1]),
+    };
+  }
+
+  function getSelectedMessagePopoverStyle() {
+    if (!selectedMessageAnchor) {
+      return undefined;
+    }
+
+    return {
+      left: `clamp(1rem, ${selectedMessageAnchor.x}px, calc(100vw - 1rem))`,
+      top: `clamp(5.5rem, ${selectedMessageAnchor.y - 16}px, calc(100vh - 1rem))`,
+    };
+  }
+
   return (
-    <section
-      className={`message-board ${placementMode ? 'placement-active' : ''}`}
-      ref={boardRef}
-      onClick={handleBoardClick}
-    >
+    <section className={`message-board ${placementMode ? 'placement-active' : ''} ${modalOpen ? 'modal-layer-active' : ''}`}>
+      <div className="message-page-layer">
+        {modalMode === 'view' && selectedMessage && selectedMessageAnchor ? (
+          <div
+            className={`message-details-card message-details-popover ${shouldRenderOnMap(selectedMessage) ? 'message-details-map-popover' : ''}`}
+            style={getSelectedMessagePopoverStyle()}
+          >
+            <div className="message-preview">
+              <span className="message-emoji preview">{selectedMessage.emoji}</span>
+              <div>
+                <p>{selectedMessage.text}</p>
+                <p className="modal-hint">Autor: {getMessageAuthorLabel(selectedMessage)}</p>
+                {hasMapCoordinates(selectedMessage) ? (
+                  <p className="modal-hint">
+                    Local: {formatCoordinate(Number(selectedMessage.latitude), 'N', 'S')} / {formatCoordinate(Number(selectedMessage.longitude), 'E', 'W')}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <div className="modal-actions popover-actions">
+              <button type="button" className="button-primary" onClick={() => vote(selectedMessage.id, 'likes')}>
+                👍 {selectedMessage.likes}
+              </button>
+              <button type="button" className="button-secondary" onClick={() => vote(selectedMessage.id, 'dislikes')}>
+                👎 {selectedMessage.dislikes}
+              </button>
+              {canDeleteSelectedMessage ? (
+                <button
+                  type="button"
+                  className="button-danger"
+                  onClick={() => deleteMessage(selectedMessage.id)}
+                >
+                  Excluir
+                </button>
+              ) : null}
+            </div>
+            {!canDeleteSelectedMessage ? (
+              <p className="modal-hint">Apenas o criador da mensagem pode excluí-la.</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {pageMessages.map((message) => {
+          const { messageSize, emojiSize } = getMessageMetrics(message);
+
+          return (
+            <div
+              key={message.id}
+              className="message-page-marker"
+              style={getMessagePositionStyle(message)}
+            >
+              <button
+                type="button"
+                className="message"
+                style={{
+                  width: `${messageSize}px`,
+                  height: `${messageSize}px`,
+                  minWidth: `${messageSize}px`,
+                  minHeight: `${messageSize}px`,
+                }}
+                onClick={() => openMessage(message)}
+              >
+                <span className="message-emoji" style={{ fontSize: `${emojiSize}rem` }}>
+                  {message.emoji}
+                </span>
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      <aside className="message-map-panel">
+        <div className="message-map-shell">
+          <div ref={mapContainerRef} id="message-canvas" className="message-canvas" />
+        </div>
+      </aside>
+
       <div className="message-board-header">
-        <div>
+        <div className="message-board-copy">
           <h2>Mensagens no mapa</h2>
           <p>
             {placementMode
@@ -229,72 +616,27 @@ export default function MessageCanvas() {
           <span>👍 / 👎 deixe uma avaliação</span>
           <button
             type="button"
-            className={placementMode ? 'button-secondary placement-toggle' : 'button-primary placement-toggle'}
-            onClick={togglePlacementMode}
+            className={placementMode === 'page' ? 'button-secondary placement-toggle' : 'button-primary placement-toggle'}
+            onClick={() => togglePlacementMode('page')}
           >
-            {placementMode ? 'Cancelar posicionamento' : 'Nova mensagem'}
+            {placementMode === 'page' ? 'Cancelar pagina' : 'Mensagem na pagina'}
+          </button>
+          <button
+            type="button"
+            className={placementMode === 'map' ? 'button-secondary placement-toggle' : 'button-primary placement-toggle'}
+            onClick={() => togglePlacementMode('map')}
+          >
+            {placementMode === 'map' ? 'Cancelar mapa' : 'Mensagem no mapa'}
           </button>
         </div>
       </div>
 
-      {error ? <p className="message-board-error">{error}</p> : null}
-
-      <div id="message-canvas" className="message-canvas">
-        {messages.map((message) => {
-          const { messageSize, emojiSize } = getMessageMetrics(message);
-
-          return (
-            <div
-              key={message.id}
-              className="message-marker"
-              style={{ left: `${message.x}px`, top: `${message.y}px` }}
-            >
-              <button
-                type="button"
-                className="message"
-                style={{
-                  width: `${messageSize}px`,
-                  height: `${messageSize}px`,
-                  minWidth: `${messageSize}px`,
-                  minHeight: `${messageSize}px`,
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  openMessage(message, event);
-                }}
-              >
-                <span className="message-emoji" style={{ fontSize: `${emojiSize}rem` }}>
-                  {message.emoji}
-                </span>
-              </button>
-            </div>
-          );
-        })}
-
-      </div>
-
-      {modalMode === 'view' && selectedMessage && (
-        <div
-          className="message-popover"
-          style={{ left: `${popoverPos.x}px`, top: `${popoverPos.y}px` }}
-        >
-          <div className="message-preview">
-            <span className="message-emoji preview">{selectedMessage.emoji}</span>
-            <p>{selectedMessage.text}</p>
-          </div>
-          <div className="modal-actions popover-actions">
-            <button type="button" className="button-primary" onClick={() => vote(selectedMessage.id, 'likes')}>
-              👍 {selectedMessage.likes}
-            </button>
-            <button type="button" className="button-secondary" onClick={() => vote(selectedMessage.id, 'dislikes')}>
-              👎 {selectedMessage.dislikes}
-            </button>
-            <button type="button" className="button-danger" onClick={() => deleteMessage(selectedMessage.id)}>
-              Excluir
-            </button>
-          </div>
+      {error || ipError ? (
+        <div className="message-board-errors">
+          {error ? <p className="message-board-error">{error}</p> : null}
+          {ipError ? <p className="message-board-error">{ipError}</p> : null}
         </div>
-      )}
+      ) : null}
 
       {modalMode === 'create' && (
         <div id="message-modal" className={modalOpen ? 'modal-open' : 'hidden'}>
@@ -313,12 +655,46 @@ export default function MessageCanvas() {
               onChange={updateFormField('text')}
             />
 
+            <div className="emoji-picker-field">
+              <input
+                type="text"
+                placeholder="Emoji (ex: 👍, 💀, ❤️)"
+                maxLength="8"
+                value={form.emoji}
+                onChange={updateFormField('emoji')}
+              />
+              <button
+                type="button"
+                className="button-secondary emoji-picker-toggle"
+                onClick={() => setEmojiPickerOpen((current) => !current)}
+                aria-expanded={emojiPickerOpen}
+              >
+                Biblioteca de emojis
+              </button>
+            </div>
+
+            {emojiPickerOpen ? (
+              <div className="emoji-picker-panel" role="listbox" aria-label="Biblioteca de emojis">
+                {emojiLibrary.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className="emoji-option"
+                    onClick={() => selectEmoji(emoji)}
+                    aria-label={`Selecionar emoji ${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
             <input
               type="text"
-              placeholder="Emoji (ex: 👍, 💀, ❤️)"
-              maxLength="2"
-              value={form.emoji}
-              onChange={updateFormField('emoji')}
+              placeholder="Username opcional"
+              maxLength="24"
+              value={form.username}
+              onChange={updateFormField('username')}
             />
 
             <div className="modal-actions">
@@ -330,7 +706,18 @@ export default function MessageCanvas() {
               </button>
             </div>
 
-            <p className="modal-hint">Posição: {clickPos.x}px, {clickPos.y}px</p>
+            <p className="modal-hint">
+              Tipo: {draftSurface === 'page' ? 'mensagem na pagina' : draftSurface === 'map' ? 'mensagem no mapa' : 'nenhum modo selecionado'}
+            </p>
+            <p className="modal-hint">
+              Local do mapa: {selectedCoordinates ? `${selectedCoordinates.lat.toFixed(4)}°, ${selectedCoordinates.lng.toFixed(4)}°` : 'nao se aplica'}
+            </p>
+            <p className="modal-hint">
+              Posicao na pagina: {selectedPagePosition ? `${selectedPagePosition.x}px, ${selectedPagePosition.y}px` : 'nao se aplica'}
+            </p>
+            <p className="modal-hint">
+              Username opcional. Sem ele, sua identificacao aparecera como {currentIp ? formatMessageIp(currentIp) : 'IP mascarado'}.
+            </p>
 
             {error ? <p className="modal-error">{error}</p> : null}
           </div>

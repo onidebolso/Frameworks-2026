@@ -37,8 +37,10 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 2rem;
+  width: 100%;
+  padding: 2rem 0 4rem;
 }
 
 h1 {
@@ -159,6 +161,11 @@ h1 {
   gap: 3rem;
 }
 
+.interactive-island {
+  position: relative;
+  z-index: 1400;
+}
+
 .side-buttons {
   display: flex;
   flex-direction: column;
@@ -171,6 +178,7 @@ h1 {
   display: flex;
   align-items: center;
   gap: 1rem;
+  z-index: 1401;
 }
 
 .side-button {
@@ -213,6 +221,7 @@ h1 {
   right: 65px;
   white-space: normal;
   overflow-y: auto;
+  z-index: 1402;
 }
 
 .side-button[aria-expanded="true"] + .side-dialog,
@@ -255,43 +264,73 @@ h1 {
 .message-board {
   position: fixed;
   inset: 0;
-  width: 100%;
-  height: 100vh;
-  margin: 0;
-  padding: 2rem 2.5rem 4rem;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  z-index: 9999;
+  pointer-events: none;
+  z-index: 950;
+}
+
+.message-board.modal-layer-active {
+  z-index: 2100;
+}
+
+.message-page-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1200;
+}
+
+.message-page-marker {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  z-index: 980;
   pointer-events: none;
 }
 
-.message-board.placement-active {
+.message-map-panel {
+  position: fixed;
+  top: 47%;
+  right: 2rem;
+  width: min(26rem, calc(100vw - 4rem));
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
   pointer-events: auto;
+  z-index: 970;
+  transform: translateY(-50%);
+}
+
+.message-map-shell {
+  position: relative;
+  margin: 0;
+  border-radius: 0;
+  overflow: visible;
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 .message-board-header {
+  position: fixed;
+  right: 2rem;
+  bottom: 2rem;
+  width: min(28rem, calc(100vw - 4rem));
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-end;
   gap: 1rem;
-  margin-bottom: 1.5rem;
   pointer-events: none;
-}
-
-.message-board-header > * {
-  pointer-events: auto;
+  z-index: 970;
 }
 
 .message-board-header h2 {
-  font-size: 2rem;
+  font-size: 1.5rem;
   margin-bottom: 0;
-  position: fixed;
-  right: 2.5rem;
-  bottom: 2rem;
+}
+
+.message-board-copy {
+  width: 100%;
   text-align: right;
-  z-index: 1;
+  pointer-events: auto;
 }
 
 .message-board-header p,
@@ -299,34 +338,41 @@ h1 {
   color: rgba(255, 255, 255, 0.75);
 }
 
-.message-board-error {
-  margin-bottom: 1rem;
-  color: #ff8f8f;
-  font-size: 0.95rem;
+.message-board-errors {
+  position: fixed;
+  right: 2rem;
+  bottom: 9.5rem;
+  width: min(28rem, calc(100vw - 4rem));
+  z-index: 971;
   pointer-events: auto;
 }
 
+.message-board-error {
+  color: #ff8f8f;
+  font-size: 0.95rem;
+  text-align: right;
+  margin-top: 0.5rem;
+}
+
 .message-canvas {
-  position: relative;
   width: 100%;
-  min-height: calc(100vh - 4rem);
+  height: clamp(220px, 28vh, 280px);
   border-radius: 0;
   background: transparent;
-  border: none;
-  overflow: visible;
+  overflow: hidden;
   cursor: default;
-  pointer-events: none;
 }
 
 .message-board.placement-active .message-canvas {
   cursor: crosshair;
-  pointer-events: auto;
 }
 
-.message-marker {
-  position: absolute;
-  z-index: 10001;
-  transform: translate(-50%, -50%);
+.ol-viewport,
+.ol-overlaycontainer,
+.ol-overlaycontainer-stopevent {
+  width: 100%;
+  height: 100%;
+  background: transparent !important;
 }
 
 .message {
@@ -350,6 +396,10 @@ h1 {
   transition: width 0.2s ease, height 0.2s ease, min-width 0.2s ease, min-height 0.2s ease, transform 0.2s ease;
 }
 
+.message-map-pin {
+  display: inline-flex;
+}
+
 .message:hover {
   transform: translateY(-2px);
 }
@@ -360,27 +410,38 @@ h1 {
   transition: font-size 0.2s ease;
 }
 
-.message-popover {
-  position: absolute;
-  transform: translate(-50%, -110%);
-  z-index: 10002;
-  max-width: 320px;
+.message-details-card {
+  width: 100%;
+  max-width: none;
   padding: 1rem;
   border-radius: 20px;
   background: rgba(7, 7, 15, 0.96);
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
-  pointer-events: auto;
+  margin-bottom: 1rem;
 }
 
-.message-popover .message-preview {
+.message-details-popover {
+  position: fixed;
+  width: min(360px, calc(100vw - 2rem));
+  margin: 0;
+  pointer-events: auto;
+  z-index: 1300;
+  transform: translate(-50%, calc(-100% - 16px));
+}
+
+.message-details-map-popover {
+  z-index: 1301;
+}
+
+.message-details-card .message-preview {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.85rem;
   margin-bottom: 0.85rem;
 }
 
-.message-popover .message-emoji.preview {
+.message-details-card .message-emoji.preview {
   font-size: 1.55rem;
 }
 
@@ -390,6 +451,10 @@ h1 {
 
 .message-preview {
   color: #fff;
+}
+
+.message-preview > div {
+  flex: 1;
 }
 
 #message-modal.hidden {
@@ -441,6 +506,50 @@ h1 {
   color: #fff;
 }
 
+.emoji-picker-field {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+  margin-bottom: 0.9rem;
+}
+
+.emoji-picker-field input {
+  margin-bottom: 0;
+}
+
+.emoji-picker-toggle {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.emoji-picker-panel {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0 0 0.9rem;
+  padding: 0.9rem;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.emoji-option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  cursor: pointer;
+  font-size: 1.25rem;
+}
+
+.emoji-option:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .modal-actions {
   display: flex;
   gap: 0.75rem;
@@ -448,11 +557,16 @@ h1 {
 }
 
 .message-board-info {
+  position: fixed;
+  top: 2rem;
+  right: 2rem;
+  width: min(26rem, calc(100vw - 4rem));
   display: flex;
   align-items: center;
   gap: 0.85rem;
   flex-wrap: wrap;
   justify-content: flex-end;
+  pointer-events: auto;
 }
 
 .placement-toggle {
@@ -500,5 +614,86 @@ h1 {
   margin-top: 1rem;
   color: rgba(255, 255, 255, 0.7);
   font-size: 0.9rem;
+}
+
+.ol-control button {
+  background: rgba(9, 11, 20, 0.82) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+}
+
+.ol-attribution,
+.ol-zoom {
+  background: rgba(9, 11, 20, 0.62) !important;
+  border-radius: 14px !important;
+}
+
+.ol-attribution button,
+.ol-zoom button {
+  border-radius: 10px !important;
+}
+
+@media (max-width: 768px) {
+  .message-map-panel {
+    top: 54%;
+    right: 1rem;
+    width: min(16rem, calc(100vw - 2rem));
+  }
+
+  .message-canvas {
+    height: 160px;
+  }
+
+  .message-board-header {
+    right: 1rem;
+    bottom: 1rem;
+    width: min(16rem, calc(100vw - 2rem));
+  }
+
+  .message-board-info {
+    top: 1rem;
+    right: 1rem;
+    width: min(16rem, calc(100vw - 2rem));
+  }
+
+  .message-board-errors {
+    right: 1rem;
+    bottom: 8.5rem;
+    width: min(16rem, calc(100vw - 2rem));
+  }
+
+  .message-details-card {
+    padding: 0.85rem;
+  }
+
+  .message-board-header h2 {
+    font-size: 1.2rem;
+  }
+
+  .message-board-header p,
+  .message-board-info span,
+  .modal-hint,
+  .message-board-error {
+    font-size: 0.82rem;
+  }
+
+  .button-primary,
+  .button-secondary,
+  .button-danger {
+    padding: 0.7rem 0.9rem;
+    font-size: 0.85rem;
+  }
+
+  .message-details-card .message-preview {
+    flex-direction: column;
+  }
+
+  .emoji-picker-field {
+    flex-direction: column;
+  }
+
+  .emoji-picker-panel {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
 }
 

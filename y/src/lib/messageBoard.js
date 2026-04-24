@@ -1,8 +1,8 @@
-export const initialMessageForm = Object.freeze({ text: '', emoji: '' });
+export const initialMessageForm = Object.freeze({ text: '', emoji: '', username: '' });
 
 export const messageBoardCopy = Object.freeze({
-  idle: 'Explore o modelo e as ilhas normalmente. Clique em nova mensagem para deixar uma mensagem.',
-  placement: 'Clique em um ponto da página para posicionar a sua mensagem.',
+  idle: 'Escolha se quer criar uma mensagem na pagina ou no mapa.',
+  placement: 'Clique no local correspondente ao modo escolhido para posicionar a nova mensagem.',
 });
 
 const baseMessageSize = 48;
@@ -17,17 +17,9 @@ const dislikeEmojiShrink = 0.06;
 
 const outsideClickIgnoreSelectors = [
   '.message',
-  '.message-popover',
+  '.message-details-popover',
   '.modal-card',
   '.placement-toggle',
-];
-
-const placementClickIgnoreSelectors = [
-  '.message',
-  '.modal-card',
-  '.modal-actions',
-  'button',
-  'input',
 ];
 
 export function applyRealtimeMessageChange(currentMessages, payload) {
@@ -50,30 +42,54 @@ export function shouldIgnoreOutsideClick(target) {
   return outsideClickIgnoreSelectors.some((selector) => target.closest(selector));
 }
 
-export function shouldIgnorePlacementClick(target) {
-  return placementClickIgnoreSelectors.some((selector) => target.closest(selector));
-}
-
-export function getBoardCoordinates(containerRect, event) {
-  return {
-    x: Math.round(event.clientX - containerRect.left),
-    y: Math.round(event.clientY - containerRect.top),
-  };
-}
-
-export function getPopoverCoordinates(boardRect, buttonRect) {
-  return {
-    x: boardRect ? Math.round(buttonRect.left - boardRect.left + buttonRect.width / 2) : 0,
-    y: boardRect ? Math.round(buttonRect.top - boardRect.top) : 0,
-  };
-}
-
 export function updateMessageField(messages, id, field, value) {
   return messages.map((item) => (item.id === id ? { ...item, [field]: value } : item));
 }
 
 export function removeMessage(messages, id) {
   return messages.filter((item) => item.id !== id);
+}
+
+export function canDeleteMessage(message, currentIp) {
+  return Boolean(message?.author_ip && currentIp && message.author_ip === currentIp);
+}
+
+export function formatMessageIp(ip) {
+  if (!ip) {
+    return 'IP indisponivel';
+  }
+
+  if (ip === 'legacy') {
+    return 'IP legado';
+  }
+
+  if (ip.includes('.')) {
+    const parts = ip.split('.');
+
+    if (parts.length === 4) {
+      return `${parts[0]}.${parts[1]}.***.${parts[3]}`;
+    }
+  }
+
+  if (ip.includes(':')) {
+    const parts = ip.split(':').filter(Boolean);
+
+    if (parts.length >= 2) {
+      return `${parts[0]}:${parts[1]}:****`;
+    }
+  }
+
+  return ip;
+}
+
+export function getMessageAuthorLabel(message) {
+  const username = message?.author_name?.trim();
+
+  if (username) {
+    return username;
+  }
+
+  return formatMessageIp(message?.author_ip);
 }
 
 export function getMessageMetrics(message) {

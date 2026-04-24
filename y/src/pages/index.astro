@@ -11,6 +11,7 @@ const sections = getOrderedWikiSections(wikiItems);
 
 <Layout>
   <main>
+    <MessageCanvas client:load />
     <h1>Death Stranding</h1>
     <ExpandableIsland sections={sections} client:load />
   </main>
@@ -23,6 +24,4 @@ const sections = getOrderedWikiSections(wikiItems);
       <p>Bem-vindo Death Stranding.</p>
     </div>
   </div>
-
-  <MessageCanvas client:load />
 </Layout>

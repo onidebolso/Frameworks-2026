@@ -25,9 +25,11 @@ Variante do projeto construída com Vue 3 + Vite dentro do mesmo repositório, c
 ## Variáveis de ambiente
 
 ```env
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+PUBLIC_SUPABASE_URL=
+PUBLIC_SUPABASE_ANON_KEY=
 ```
+
+O app também aceita VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY por compatibilidade, mas o padrão deste repositório está em PUBLIC_*.
 
 ## Comandos
 

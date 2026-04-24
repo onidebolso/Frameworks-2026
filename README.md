@@ -129,6 +129,84 @@ cd y
 npm run build
 ```
 
+## Comparativo de performance
+
+Foi executado um teste comparativo entre as duas bases do repositório com o mesmo critério:
+
+- remoção da pasta dist antes de cada medição
+- build de produção com npm run build
+- medição do tempo total de execução do comando
+- comparação do tamanho final dos artefatos gerados em dist
+
+Resultado da medição local neste repositório:
+
+| Métrica | x (Vue + Vite) | y (Astro + React) |
+| --- | ---: | ---: |
+| Tempo total de build | 1,20 s | 6,81 s |
+| Tamanho total de dist | 537.028 bytes | 698.141 bytes |
+| JavaScript emitido | 505.165 bytes | 644.268 bytes |
+| CSS emitido | 14.566 bytes | 14.773 bytes |
+| HTML emitido | 731 bytes | 21.626 bytes |
+| Arquivos em dist | 20 | 24 |
+
+Leitura do resultado:
+
+- A variante [x](x) venceu em velocidade de build e volume total de arquivos emitidos.
+- A variante [y](y) gerou mais HTML estático já pronto na saída final, o que é coerente com a proposta do Astro de entregar mais conteúdo pré-renderizado.
+- O custo dessa abordagem apareceu no build local: mais tempo de compilação e mais bytes totais no diretório final.
+- Para benchmark de empacotamento, x ficou mais eficiente. Para entrega de conteúdo estático e renderização inicial orientada a HTML, y mantém uma vantagem arquitetural.
+
+Esse comparativo mede build de produção e artefatos estáticos do repositório atual. Ele não substitui um teste de runtime no navegador, como Lighthouse, Web Vitals ou perfil de hidratação.
+
+### Comparativo real de carregamento com Lighthouse
+
+Também foi executado um teste de carregamento real em navegador com Lighthouse, usando os previews de produção locais de [x](x) e [y](y), ambos medidos com o preset desktop.
+
+Dados de reprodução desta medição:
+
+- Data: 2026-04-24
+- Navegador: Google Chrome for Testing 148.0.7778.56
+- CLI: npx --yes lighthouse 13.1.0
+
+Comandos usados na medição:
+
+```bash
+cd x && npm run preview -- --host 0.0.0.0 --port 4173
+cd y && npm run preview -- --host 0.0.0.0 --port 4321
+
+export CHROME_PATH=/tmp/lh-browser/chrome/linux-148.0.7778.56/chrome-linux64/chrome
+npx --yes lighthouse http://127.0.0.1:4173 --preset=desktop --only-categories=performance --output=json --output-path=/tmp/lh-x.json --quiet --chrome-flags='--headless=new --no-sandbox --disable-dev-shm-usage --enable-unsafe-swiftshader'
+npx --yes lighthouse http://127.0.0.1:4321 --preset=desktop --only-categories=performance --output=json --output-path=/tmp/lh-y.json --quiet --chrome-flags='--headless=new --no-sandbox --disable-dev-shm-usage --enable-unsafe-swiftshader'
+```
+
+Critério usado nesta medição:
+
+- build de produção já gerado para cada app
+- servidor local de preview para cada variante
+- Lighthouse rodando sobre o HTML realmente servido
+- mesma máquina, mesmo navegador e mesmas flags headless
+
+Resultado da medição local com Lighthouse:
+
+| Métrica | x (Vue + Vite) | y (Astro + React) |
+| --- | ---: | ---: |
+| Score de performance | 92 | 91 |
+| FCP | 1.103 ms | 728 ms |
+| LCP | 1.143 ms | 840 ms |
+| Speed Index | 1.103 ms | 1.094 ms |
+| TTI | 1.143 ms | 952 ms |
+| TBT | 0 ms | 49 ms |
+| CLS | 0,109 | 0,174 |
+| Transferência total | 1.685 KiB | 1.730 KiB |
+| Requisições de rede | 78 | 81 |
+
+Leitura do Lighthouse:
+
+- A variante [y](y) apareceu mais rápida nas métricas de primeira entrega visual, como FCP, LCP e TTI.
+- A variante [x](x) terminou com score geral ligeiramente melhor e menor custo de bloqueio, estabilidade visual e volume transferido.
+- Na prática, y entrega conteúdo visível mais cedo, enquanto x mantém execução mais leve depois que a página começa a hidratar.
+- Como as duas páginas carregam recursos externos, como Sketchfab, mapas e integrações de cliente, os números podem variar entre execuções e devem ser lidos como benchmark local comparativo, não como valor absoluto.
+
 ## Refatorações e adições recentes
 
 - Remoção de dependências de Tailwind que não estavam sendo usadas

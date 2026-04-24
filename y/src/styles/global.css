@@ -181,6 +181,10 @@ h1 {
   z-index: 1401;
 }
 
+.floating-button-group:has(.side-button[aria-expanded="true"]) {
+  z-index: 1410;
+}
+
 .side-button {
   width: 50px;
   height: 50px;
@@ -302,11 +306,11 @@ h1 {
 .message-map-shell {
   position: relative;
   margin: 0;
-  border-radius: 0;
-  overflow: visible;
-  border: none;
-  background: transparent;
-  box-shadow: none;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(8, 10, 18, 0.28);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.24);
 }
 
 .message-board-header {
@@ -357,7 +361,7 @@ h1 {
 .message-canvas {
   width: 100%;
   height: clamp(220px, 28vh, 280px);
-  border-radius: 0;
+  border-radius: inherit;
   background: transparent;
   overflow: hidden;
   cursor: default;
@@ -634,32 +638,135 @@ h1 {
 }
 
 @media (max-width: 768px) {
+  main {
+    gap: 1.5rem;
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  h1 {
+    font-size: clamp(2.2rem, 11vw, 3.2rem);
+    line-height: 0.95;
+  }
+
+  .content-with-buttons {
+    flex-direction: column;
+    align-items: stretch;
+    width: min(100%, calc(100vw - 2rem));
+    gap: 1.25rem;
+  }
+
+  .sketchfab-embed-wrapper {
+    order: 1;
+    width: 100%;
+  }
+
+  .left-buttons {
+    order: 2;
+  }
+
+  .right-buttons {
+    order: 3;
+  }
+
+  .side-buttons {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .right-buttons .floating-button-group {
+    flex-direction: row;
+  }
+
+  .side-dialog,
+  .right-dialog {
+    top: calc(100% + 0.75rem);
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%);
+    min-width: 0;
+    width: min(18rem, calc(100vw - 2rem));
+    max-width: calc(100vw - 2rem);
+    max-height: 50vh;
+  }
+
+  .floating-island {
+    position: static;
+    bottom: auto;
+    left: auto;
+    width: min(100%, calc(100vw - 2rem));
+    margin: 0 auto;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .info-button {
+    align-self: center;
+  }
+
+  .dialog-box {
+    position: static;
+    left: auto;
+    bottom: auto;
+    min-width: 0;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .message-board {
+    position: relative;
+    inset: auto;
+    width: min(100%, calc(100vw - 2rem));
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    pointer-events: auto;
+  }
+
   .message-map-panel {
-    top: 54%;
-    right: 1rem;
-    width: min(16rem, calc(100vw - 2rem));
+    position: static;
+    top: auto;
+    right: auto;
+    order: 3;
+    width: 100%;
+    transform: none;
   }
 
   .message-canvas {
-    height: 160px;
+    height: clamp(220px, 42vh, 300px);
   }
 
   .message-board-header {
-    right: 1rem;
-    bottom: 1rem;
-    width: min(16rem, calc(100vw - 2rem));
+    position: static;
+    right: auto;
+    bottom: auto;
+    order: 1;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .message-board-copy {
+    text-align: left;
   }
 
   .message-board-info {
-    top: 1rem;
-    right: 1rem;
-    width: min(16rem, calc(100vw - 2rem));
+    position: static;
+    top: auto;
+    right: auto;
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .message-board-errors {
-    right: 1rem;
-    bottom: 8.5rem;
-    width: min(16rem, calc(100vw - 2rem));
+    position: static;
+    right: auto;
+    bottom: auto;
+    order: 2;
+    width: 100%;
   }
 
   .message-details-card {
@@ -675,6 +782,10 @@ h1 {
   .modal-hint,
   .message-board-error {
     font-size: 0.82rem;
+  }
+
+  .message-board-error {
+    text-align: left;
   }
 
   .button-primary,

@@ -68,6 +68,7 @@ export default function MessageCanvas() {
   const cleanupMapResizeRef = useRef(null);
   const placementModeRef = useRef(null);
   const selectedMessageRef = useRef(null);
+  const mobileMediaQueryRef = useRef(null);
   const [messages, setMessages] = useState([]);
   const [placementMode, setPlacementMode] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -83,6 +84,7 @@ export default function MessageCanvas() {
   const [selectedMessageAnchor, setSelectedMessageAnchor] = useState(null);
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [modalMode, setModalMode] = useState('create');
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   useEffect(() => {
     placementModeRef.current = placementMode;
@@ -91,6 +93,28 @@ export default function MessageCanvas() {
   useEffect(() => {
     selectedMessageRef.current = selectedMessage;
   }, [selectedMessage]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    const handleChange = (event) => {
+      setIsMobileViewport(event.matches);
+    };
+
+    mobileMediaQueryRef.current = mediaQuery;
+    setIsMobileViewport(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleChange);
+      mobileMediaQueryRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isMobileViewport) {
+      disablePagePlacement();
+    }
+  }, [isMobileViewport]);
 
   useEffect(() => {
     let isMounted = true;
@@ -273,6 +297,16 @@ export default function MessageCanvas() {
     setSelectedMessageAnchor(null);
   }
 
+  function disablePagePlacement() {
+    setPlacementMode((current) => (current === 'page' ? null : current));
+    setSelectedPagePosition(null);
+    setDraftSurface((current) => (current === 'page' ? null : current));
+
+    if (modalMode === 'create' && draftSurface === 'page') {
+      closeModal();
+    }
+  }
+
   function openCreateModal(surface, { coordinates = null, pagePosition = null } = {}) {
     clearSelectedMessageState();
     setSelectedCoordinates(coordinates);
@@ -315,6 +349,11 @@ export default function MessageCanvas() {
   }
 
   function togglePlacementMode(nextMode) {
+    if (nextMode === 'page' && isMobileViewport) {
+      disablePagePlacement();
+      return;
+    }
+
     setPlacementMode((current) => {
       const nextValue = current === nextMode ? null : nextMode;
 
@@ -614,13 +653,15 @@ export default function MessageCanvas() {
         </div>
         <div className="message-board-info">
           <span>👍 / 👎 deixe uma avaliação</span>
-          <button
-            type="button"
-            className={placementMode === 'page' ? 'button-secondary placement-toggle' : 'button-primary placement-toggle'}
-            onClick={() => togglePlacementMode('page')}
-          >
-            {placementMode === 'page' ? 'Cancelar pagina' : 'Mensagem na pagina'}
-          </button>
+          {!isMobileViewport ? (
+            <button
+              type="button"
+              className={placementMode === 'page' ? 'button-secondary placement-toggle' : 'button-primary placement-toggle'}
+              onClick={() => togglePlacementMode('page')}
+            >
+              {placementMode === 'page' ? 'Cancelar pagina' : 'Mensagem na pagina'}
+            </button>
+          ) : null}
           <button
             type="button"
             className={placementMode === 'map' ? 'button-secondary placement-toggle' : 'button-primary placement-toggle'}

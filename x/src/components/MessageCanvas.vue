@@ -66,9 +66,11 @@ const mapRef = ref(null);
 const mapModulesRef = ref(null);
 const markerOverlaysRef = ref([]);
 const cleanupMapResizeRef = ref(null);
+const mobileMediaQueryRef = ref(null);
 const placementModeRef = ref(null);
 const selectedMessageRef = ref(null);
 const realtimeChannelRef = ref(null);
+const isMobileViewport = ref(false);
 
 const messages = ref([]);
 const placementMode = ref(null);
@@ -98,6 +100,12 @@ watch(placementMode, (value) => {
 
 watch(selectedMessage, (value) => {
   selectedMessageRef.value = value;
+});
+
+watch(isMobileViewport, (value) => {
+  if (value) {
+    disablePagePlacement();
+  }
 });
 
 watch(messages, (currentMessages) => {
@@ -172,6 +180,15 @@ watch([modalMode, selectedMessage], ([mode, message], _, onCleanup) => {
 });
 
 onMounted(async () => {
+  const mediaQuery = window.matchMedia('(max-width: 768px)');
+  const syncViewportMode = (event) => {
+    isMobileViewport.value = event.matches;
+  };
+
+  mobileMediaQueryRef.value = mediaQuery;
+  isMobileViewport.value = mediaQuery.matches;
+  mediaQuery.addEventListener('change', syncViewportMode);
+
   await Promise.all([fetchMessages(), fetchCurrentIp()]);
   await initializeMap();
 
@@ -188,6 +205,11 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  if (mobileMediaQueryRef.value) {
+    mobileMediaQueryRef.value.removeEventListener('change', syncViewportMode);
+    mobileMediaQueryRef.value = null;
+  }
+
   if (realtimeChannelRef.value) {
     supabase.removeChannel(realtimeChannelRef.value);
   }
@@ -266,6 +288,25 @@ async function fetchCurrentIp() {
   ipError.value = null;
 }
 
+function syncViewportMode(event) {
+  isMobileViewport.value = event.matches;
+}
+
+function disablePagePlacement() {
+  if (placementMode.value === 'page') {
+    placementMode.value = null;
+  }
+
+  if (draftSurface.value === 'page') {
+    draftSurface.value = null;
+    selectedPagePosition.value = null;
+
+    if (modalMode.value === 'create') {
+      closeModal();
+    }
+  }
+}
+
 function clearSelectedMessageState() {
   selectedMessage.value = null;
   selectedMessageAnchor.value = null;
@@ -324,6 +365,11 @@ function openMessage(message) {
 }
 
 function togglePlacementMode(nextMode) {
+  if (nextMode === 'page' && isMobileViewport.value) {
+    disablePagePlacement();
+    return;
+  }
+
   placementMode.value = placementMode.value === nextMode ? null : nextMode;
 
   if (placementMode.value) {
@@ -617,6 +663,7 @@ function getSelectedMessagePopoverStyle() {
       <div class="message-board-info">
         <span>👍 / 👎 deixe uma avaliação</span>
         <button
+          v-if="!isMobileViewport"
           type="button"
           :class="placementMode === 'page' ? 'button-secondary placement-toggle' : 'button-primary placement-toggle'"
           @click="togglePlacementMode('page')"

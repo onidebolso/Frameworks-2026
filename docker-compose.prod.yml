@@ -1,0 +1,26 @@
+# O ambiente de produção usa apenas o frontend estático.
+# O Supabase permanece hospedado externamente e não é provisionado como serviço local.
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: y
+        LISTEN_PORT: 4321
+        PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL}
+        PUBLIC_SUPABASE_ANON_KEY: ${PUBLIC_SUPABASE_ANON_KEY}
+    env_file:
+      - ./y/.env
+    ports:
+      - "4321:4321"
+    environment:
+      - NODE_ENV=production
+      - PUBLIC_SUPABASE_URL
+      - PUBLIC_SUPABASE_ANON_KEY
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4321 >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

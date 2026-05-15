@@ -1,0 +1,17 @@
+# Ignora artefatos de build locais e dependências para manter o contexto leve.
+**/node_modules
+**/dist
+**/.cache
+**/.DS_Store
+**/Thumbs.db
+**/npm-debug.log*
+**/y/package-lock.json
+**/x/package-lock.json
+**/.git
+**/.vscode
+**/docker-compose*.yml
+**/.env
+**/.env.*
+**/y/.env
+**/x/.env
+README.md

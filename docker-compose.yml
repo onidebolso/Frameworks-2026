@@ -1,0 +1,26 @@
+# Este compose usa Supabase hospedado externamente; não provisiona um serviço local de banco.
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APP_DIR: y
+        LISTEN_PORT: 4321
+    env_file:
+      - ./y/.env
+    ports:
+      - "4321:4321"
+    volumes:
+      - ./y:/app/y:cached
+      - /app/y/node_modules
+    environment:
+      - NODE_ENV=development
+      - PUBLIC_SUPABASE_URL
+      - PUBLIC_SUPABASE_ANON_KEY
+    command: sh -c "cd /app/y && npm install && npm run dev -- --host 0.0.0.0 --port 4321"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4321 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

@@ -10,7 +10,7 @@ services:
     env_file:
       - ./y/.env
     ports:
-      - "4321:4321"
+      - "3042:4321"
     volumes:
       - ./y:/app/y:cached
       - /app/y/node_modules

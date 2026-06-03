@@ -13,14 +13,18 @@ services:
       - "3042:4321"
     volumes:
       - ./y:/app/y:cached
-      - /app/y/node_modules
+      - frontend_node_modules:/app/y/node_modules
     environment:
       - NODE_ENV=development
       - PUBLIC_SUPABASE_URL
       - PUBLIC_SUPABASE_ANON_KEY
     command: sh -c "cd /app/y && npm install && npm run dev"
+    user: "root"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4321 >/dev/null 2>&1"]
       interval: 10s
       timeout: 5s
       retries: 3
+
+volumes:
+  frontend_node_modules:

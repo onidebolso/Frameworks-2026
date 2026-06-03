@@ -8,16 +8,16 @@ services:
       args:
         APP_DIR: y
         LISTEN_PORT: 4321
-        PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL}
-        PUBLIC_SUPABASE_ANON_KEY: ${PUBLIC_SUPABASE_ANON_KEY}
+        PUBLIC_SUPABASE_URL: ${PUBLIC_SUPABASE_URL:-https://placeholder.supabase.co}
+        PUBLIC_SUPABASE_ANON_KEY: ${PUBLIC_SUPABASE_ANON_KEY:-placeholder-key}
     env_file:
       - ./y/.env
     ports:
       - "4321:4321"
     environment:
       - NODE_ENV=production
-      - PUBLIC_SUPABASE_URL
-      - PUBLIC_SUPABASE_ANON_KEY
+      - PUBLIC_SUPABASE_URL=${PUBLIC_SUPABASE_URL:-https://placeholder.supabase.co}
+      - PUBLIC_SUPABASE_ANON_KEY=${PUBLIC_SUPABASE_ANON_KEY:-placeholder-key}
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4321 >/dev/null 2>&1"]

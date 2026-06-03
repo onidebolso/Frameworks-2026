@@ -13,7 +13,7 @@ services:
     env_file:
       - ./y/.env
     ports:
-      - "4321:4321"
+      - "3041:4321"
     environment:
       - NODE_ENV=production
       - PUBLIC_SUPABASE_URL=${PUBLIC_SUPABASE_URL:-https://placeholder.supabase.co}

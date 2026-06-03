@@ -5,4 +5,8 @@ import react from '@astrojs/react';
 
 export default defineConfig({
   integrations: [mdx(), react()],
+  server: {
+    host: '0.0.0.0',
+    port: 4321,
+  },
 });

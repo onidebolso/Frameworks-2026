@@ -18,7 +18,7 @@ services:
       - NODE_ENV=development
       - PUBLIC_SUPABASE_URL
       - PUBLIC_SUPABASE_ANON_KEY
-    command: sh -c "cd /app/y && npm install && npm run dev -- --host 0.0.0.0 --port 4321"
+    command: sh -c "cd /app/y && npm install && npm run dev"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:4321 >/dev/null 2>&1"]
       interval: 10s

@@ -9,13 +9,14 @@ ARG PUBLIC_SUPABASE_ANON_KEY
 
 FROM node:22-alpine AS builder
 ARG APP_DIR
-ARG PUBLIC_SUPABASE_URL
-ARG PUBLIC_SUPABASE_ANON_KEY
+ARG PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
+ARG PUBLIC_SUPABASE_ANON_KEY=placeholder-key
 
 WORKDIR /app
 RUN mkdir -p /app && chown node:node /app
 
 # Define variáveis de build expostas ao processo de bundling do Astro/Vite.
+# Usa valores padrão se não fornecidos, permitindo build sem credenciais reais.
 ENV PUBLIC_SUPABASE_URL=${PUBLIC_SUPABASE_URL}
 ENV PUBLIC_SUPABASE_ANON_KEY=${PUBLIC_SUPABASE_ANON_KEY}
 

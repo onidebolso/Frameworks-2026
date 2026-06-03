@@ -18,6 +18,7 @@ test-results/
 package-lock.json
 .turbo/
 .eslintcache
+.env
 .pnpm-store
 .vscode-test/
 .claude

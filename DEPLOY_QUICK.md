@@ -26,7 +26,7 @@ mkdir -p ~/projects/frameworks-2026 && cd ~/projects/frameworks-2026
 # No seu computador local:
 cd /workspaces/Frameworks-2026
 scp -r --exclude='node_modules' --exclude='dist' --exclude='.git' \
-  Dockerfile docker-compose.prod.yml healthcheck-*.sh y/ \
+  Dockerfile docker-compose.prod.yml docker/ healthcheck-*.sh y/ \
   marco@95.111.238.203:~/projects/frameworks-2026/
 ```
 
@@ -46,7 +46,7 @@ Se não tiver credenciais ainda, o Docker ainda vai rodar com placeholders (sem 
 
 ## 6️⃣ Rodar Docker
 ```bash
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.prod.yml up -d --build
 ```
 
 ## 7️⃣ Verificar Status
@@ -57,7 +57,7 @@ docker-compose -f docker-compose.prod.yml logs
 
 ## 8️⃣ Acessar
 ```
-http://95.111.238.203:4321
+http://95.111.238.203:3041
 ```
 
 ---
@@ -66,6 +66,8 @@ http://95.111.238.203:4321
 ```bash
 # Ver logs detalhados
 docker-compose -f docker-compose.prod.yml logs -f frontend
+docker-compose -f docker-compose.prod.yml logs -f backend
+docker-compose -f docker-compose.prod.yml logs -f postgres
 
 # Limpar e recomeçar
 docker-compose -f docker-compose.prod.yml down -v

@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import 'ol/ol.css';
-import { supabase } from '../lib/supabaseClient.js';
 import {
-  applyRealtimeMessageChange,
   canDeleteMessage,
   formatMessageIp,
   getMessageAuthorLabel,
@@ -47,17 +45,9 @@ const emojiLibrary = [
   '🌍', '🗺️', '🎮', '🎵', '🌧️', '⚡', '☠️', '🚀',
 ];
 
-function getFriendlySupabaseErrorMessage(error) {
-  const message = error?.message || '';
-
-  if (
-    message.includes("Could not find the 'latitude' column of 'messages' in the schema cache") ||
-    message.includes("Could not find the 'longitude' column of 'messages' in the schema cache")
-  ) {
-    return 'O Supabase ainda nao reconhece as colunas latitude/longitude. Rode o SQL atualizado em y/supabase-create-table.sql e depois recarregue o schema cache.';
-  }
-
-  return message;
+function getFriendlyErrorMessage(error) {
+  const message = error?.message || error?.error || '';
+  return message || 'Nao foi possivel concluir a operacao.';
 }
 
 export default function MessageCanvas() {
@@ -123,20 +113,13 @@ export default function MessageCanvas() {
     fetchCurrentIp();
     initializeMap();
 
-    const channel = supabase
-      .channel('messages-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'messages' },
-        (payload) => {
-          setMessages((current) => applyRealtimeMessageChange(current, payload));
-        }
-      )
-      .subscribe();
+    const pollInterval = window.setInterval(() => {
+      fetchMessages();
+    }, 3000);
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
+      window.clearInterval(pollInterval);
 
       if (mapRef.current) {
         cleanupMapResizeRef.current?.();
@@ -267,29 +250,37 @@ export default function MessageCanvas() {
   const pageMessages = messages.filter(shouldRenderOnPage);
 
   async function fetchMessages() {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .order('created_at', { ascending: true });
+    try {
+      const response = await fetch('/api/messages');
 
-    if (error) {
-      setError(getFriendlySupabaseErrorMessage(error));
-      return;
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        setError(getFriendlyErrorMessage(payload));
+        return;
+      }
+
+      const data = await response.json();
+      setMessages(data || []);
+    } catch (error) {
+      setError(getFriendlyErrorMessage(error));
     }
-
-    setMessages(data || []);
   }
 
   async function fetchCurrentIp() {
-    const { data, error } = await supabase.rpc('request_ip');
+    try {
+      const response = await fetch('/api/messages/ip');
 
-    if (error || !data) {
-      setIpError('Nao foi possivel identificar seu IP. Rode o SQL atualizado no Supabase antes de criar ou excluir mensagens.');
-      return;
+      if (!response.ok) {
+        setIpError('Nao foi possivel identificar seu IP.');
+        return;
+      }
+
+      const payload = await response.json();
+      setCurrentIp(payload.ip || '');
+      setIpError(null);
+    } catch (error) {
+      setIpError('Nao foi possivel identificar seu IP.');
     }
-
-    setCurrentIp(data);
-    setIpError(null);
   }
 
   function clearSelectedMessageState() {
@@ -400,26 +391,35 @@ export default function MessageCanvas() {
     setSaving(true);
     setError(null);
 
-    const { error } = await supabase.from('messages').insert({
-      text: form.text.trim(),
-      emoji: form.emoji.trim() || '💬',
-      author_name: form.username.trim() || null,
-      author_ip: currentIp,
-      latitude: draftSurface === 'map' ? selectedCoordinates.lat : null,
-      longitude: draftSurface === 'map' ? selectedCoordinates.lng : null,
-      x: draftSurface === 'page' ? selectedPagePosition.x : -1,
-      y: draftSurface === 'page' ? selectedPagePosition.y : -1,
-      likes: 0,
-      dislikes: 0,
-    });
+    try {
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: form.text.trim(),
+          emoji: form.emoji.trim() || '💬',
+          author_name: form.username.trim() || null,
+          latitude: draftSurface === 'map' ? selectedCoordinates.lat : null,
+          longitude: draftSurface === 'map' ? selectedCoordinates.lng : null,
+          x: draftSurface === 'page' ? selectedPagePosition.x : -1,
+          y: draftSurface === 'page' ? selectedPagePosition.y : -1,
+        }),
+      });
 
-    if (error) {
-      setError(getFriendlySupabaseErrorMessage(error));
-    } else {
-      closeModal();
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setError(getFriendlyErrorMessage(payload));
+      } else {
+        closeModal();
+      }
+    } catch (error) {
+      setError(getFriendlyErrorMessage(error));
+    } finally {
+      setSaving(false);
     }
-
-    setSaving(false);
   }
 
   async function vote(id, field) {
@@ -433,17 +433,30 @@ export default function MessageCanvas() {
       current?.id === id ? { ...current, [field]: nextValue } : current
     );
 
-    const { error } = await supabase
-      .from('messages')
-      .update({ [field]: nextValue })
-      .eq('id', id);
+    try {
+      const response = await fetch(`/api/messages/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ field }),
+      });
 
-    if (error) {
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setMessages((current) => updateMessageField(current, id, field, message[field]));
+        setSelectedMessage((current) =>
+          current?.id === id ? { ...current, [field]: message[field] } : current
+        );
+        setError(getFriendlyErrorMessage(payload));
+      }
+    } catch (error) {
       setMessages((current) => updateMessageField(current, id, field, message[field]));
       setSelectedMessage((current) =>
         current?.id === id ? { ...current, [field]: message[field] } : current
       );
-      setError(getFriendlySupabaseErrorMessage(error));
+      setError(getFriendlyErrorMessage(error));
     }
   }
 
@@ -459,17 +472,25 @@ export default function MessageCanvas() {
     const confirmed = window.confirm('Tem certeza que deseja remover esta mensagem?');
     if (!confirmed) return;
 
-    const { error } = await supabase.from('messages').delete().eq('id', id);
+    try {
+      const response = await fetch(`/api/messages/${id}`, {
+        method: 'DELETE',
+      });
 
-    if (error) {
-      setError(getFriendlySupabaseErrorMessage(error));
-      return;
-    }
+      const payload = await response.json().catch(() => ({}));
 
-    setMessages((current) => removeMessage(current, id));
+      if (!response.ok) {
+        setError(getFriendlyErrorMessage(payload));
+        return;
+      }
 
-    if (selectedMessage?.id === id) {
-      closeModal();
+      setMessages((current) => removeMessage(current, id));
+
+      if (selectedMessage?.id === id) {
+        closeModal();
+      }
+    } catch (error) {
+      setError(getFriendlyErrorMessage(error));
     }
   }
 

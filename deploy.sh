@@ -52,7 +52,7 @@ ssh "$REMOTE" "mkdir -p ~/projects/frameworks-2026" 2>/dev/null && echo "  ✅ D
 echo ""
 echo "📤 Enviando arquivos do projeto..."
 scp -r -q --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='.env' \
-  Dockerfile docker-compose.prod.yml healthcheck-*.sh y/ \
+    Dockerfile docker-compose.prod.yml docker/ healthcheck-*.sh y/ \
   "$REMOTE:~/projects/frameworks-2026/" && echo "  ✅ Arquivos enviados"
 
 # 4. Solicitar credenciais Supabase
@@ -88,6 +88,6 @@ echo "📊 Status:"
 ssh "$REMOTE" "cd ~/projects/frameworks-2026 && docker-compose -f docker-compose.prod.yml ps"
 
 echo ""
-echo "🌐 Acesse: http://$(echo $REMOTE | cut -d'@' -f2):4321"
+echo "🌐 Acesse: http://$(echo $REMOTE | cut -d'@' -f2):3041"
 echo ""
 echo "📝 Ver logs: ssh $REMOTE 'cd ~/projects/frameworks-2026 && docker-compose -f docker-compose.prod.yml logs -f'"

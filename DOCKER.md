@@ -1,129 +1,118 @@
 # Guia Docker - Frameworks-2026
 
-Este documento descreve como usar Docker para rodar o projeto Astro (Y).
+Este projeto roda com 3 containers:
+
+- `frontend`: Nginx (porta publica `3041`)
+- `backend`: Astro SSR + API (`/api/messages`)
+- `postgres`: banco PostgreSQL local da stack
 
 ## Pré-requisitos
 
-- Docker Desktop instalado
-- Docker Compose instalado
-- Variáveis de ambiente Supabase configuradas
+- Docker
+- Docker Compose
 
-## Configuração das Variáveis de Ambiente
+## Arquivos principais
 
-1. Copie o arquivo `.env.example` para `.env` no diretório `y/`:
+- `docker-compose.yml`: stack de desenvolvimento
+- `docker-compose.prod.yml`: stack de produção
+- `docker/nginx/default.conf`: proxy do frontend para o backend
+- `docker/postgres/init/01-messages.sql`: schema inicial local do banco
+
+## Configuração de ambiente
+
+1. Copie o `.env` do app Astro:
 
 ```bash
 cp y/.env.example y/.env
 ```
 
-2. Edite o arquivo `y/.env` e preencha com suas credenciais do Supabase:
+2. Preencha ao menos as chaves públicas do Supabase em `y/.env`:
 
-```
+```env
 PUBLIC_SUPABASE_URL=https://seu-project.supabase.co
 PUBLIC_SUPABASE_ANON_KEY=sua-anon-key
 ```
 
-## Desenvolvimento com Docker
+3. (Opcional) Ajuste as variáveis do PostgreSQL local:
 
-### Iniciar o servidor de desenvolvimento
+```env
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/frameworks
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=frameworks
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+```
+
+## Desenvolvimento
+
+Subir stack completa:
 
 ```bash
 docker-compose up --build
 ```
 
-O servidor será acessível em `http://localhost:3042`
+Acesso:
 
-### Comandos úteis
+- App: `http://localhost:3041`
+- API: `http://localhost:3041/api/messages`
+
+Comandos úteis:
 
 ```bash
-# Iniciar sem rebuild
-docker-compose up
-
-# Rodar em background
 docker-compose up -d
-
-# Ver logs
+docker-compose ps
 docker-compose logs -f frontend
-
-# Parar os serviços
+docker-compose logs -f backend
+docker-compose logs -f postgres
 docker-compose down
-
-# Remover volumes também
 docker-compose down -v
-
-# Rebuild completo
-docker-compose build --no-cache
 ```
 
-## Produção com Docker
+## Produção
 
-### Build para produção
+Build + run em background:
 
 ```bash
-docker-compose -f docker-compose.prod.yml up --build
+docker-compose -f docker-compose.prod.yml up -d --build
 ```
 
-O servidor será acessível em `http://localhost:4321`
+Acesso:
 
-### Variáveis de Ambiente em Produção
+- App: `http://localhost:3041`
 
-Para produção, configure as variáveis de ambiente via argumentos de build ou arquivo .env:
+Logs:
 
 ```bash
-docker-compose -f docker-compose.prod.yml up \
-  --build \
-  -e PUBLIC_SUPABASE_URL=https://seu-project.supabase.co \
-  -e PUBLIC_SUPABASE_ANON_KEY=sua-anon-key
+docker-compose -f docker-compose.prod.yml logs -f frontend
+docker-compose -f docker-compose.prod.yml logs -f backend
+docker-compose -f docker-compose.prod.yml logs -f postgres
 ```
-
-## Estrutura do Dockerfile
-
-O Dockerfile usa build multi-stage para otimizar o tamanho da imagem:
-
-1. **Stage builder**: Instala dependências e gera o build estático com Astro
-2. **Stage runtime**: Usa apenas o diretório `dist` com um servidor estático (`serve`)
 
 ## Troubleshooting
 
-### Porta já em uso
+### Porta 3041 ocupada
 
-Se a porta 3042 ou 4321 já estiver em uso, modifique a porta no `docker-compose.yml`:
+Altere o mapeamento no compose:
 
 ```yaml
-ports:
-  - "5000:4321"  # Seu local port:container port
+services:
+  frontend:
+    ports:
+      - "8080:80"
 ```
 
-### Rebuild não está funcionando
-
-Force um rebuild completo:
+### Rebuild limpo
 
 ```bash
 docker-compose down -v
-docker-compose up --build --no-cache
+docker-compose up -d --build
 ```
 
-### Problemas com node_modules
-
-Se tiver problemas com dependências, remova o volume e recrie:
+### Verificar saúde dos serviços
 
 ```bash
-docker volume prune
-docker-compose down
-docker-compose up --build
+docker-compose ps
 ```
 
-## Health Check
-
-O serviço inclui um health check que verifica se a aplicação está respondendo:
-
-```bash
-docker ps
-# Verifique a coluna STATUS
-```
-
-Se o health check estiver falhando, verifique os logs:
-
-```bash
-docker-compose logs frontend
-```
+Todos os serviços devem aparecer como `healthy` ou `Up`.

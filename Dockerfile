@@ -39,20 +39,18 @@ RUN mkdir -p /app && chown node:node /app
 
 # Torna a porta disponível também como ENV em tempo de execução.
 ENV LISTEN_PORT=${LISTEN_PORT}
-
-# Instala um servidor estático leve globalmente.
-RUN npm install -g serve@14 --no-progress --no-audit --no-fund
+ENV HOST=0.0.0.0
 
 # Disponibiliza os scripts de healthcheck no container, caso queira usá-los.
 COPY healthcheck-*.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/healthcheck-*.sh
 
-# Copia apenas o output de produção.
+# Copia apenas o output de produção compatível com o adapter node do Astro.
 COPY --from=builder /app/${APP_DIR}/dist ./dist
 
 USER node
 ENV NODE_ENV=production
 EXPOSE ${LISTEN_PORT}
 
-# Use LISTEN_PORT para servir o site.
-CMD ["sh", "-lc", "serve -s dist -l ${LISTEN_PORT:-4321}"]
+# Inicia o servidor Node gerado pelo adapter do Astro.
+CMD ["sh", "-lc", "node ./dist/server/entry.mjs"]

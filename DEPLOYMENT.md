@@ -1,5 +1,11 @@
 # 🚀 Guia de Deploy em Máquina Virtual
 
+Arquitetura atual do deploy Docker:
+
+- `frontend` (Nginx): porta pública `3041`
+- `backend` (Astro SSR + API): rede interna do compose
+- `postgres` (DB): rede interna do compose
+
 ## Passo 1: Conectar via SSH
 
 ```bash
@@ -57,7 +63,7 @@ cd /workspaces/Frameworks-2026
 
 # Enviar arquivos (exclua node_modules, dist, .git, etc)
 scp -r --exclude='node_modules' --exclude='dist' --exclude='.git' --exclude='.env' \
-  Dockerfile docker-compose.prod.yml healthcheck-*.sh y/ \
+  Dockerfile docker-compose.prod.yml docker/ healthcheck-*.sh y/ \
   marco@95.111.238.203:~/projects/frameworks-2026/
 ```
 
@@ -97,13 +103,15 @@ Na VM:
 cd ~/projects/frameworks-2026
 
 # Build e iniciar em produção
-docker-compose -f docker-compose.prod.yml up -d
+docker-compose -f docker-compose.prod.yml up -d --build
 
 # Verificar status
 docker-compose -f docker-compose.prod.yml ps
 
 # Ver logs
 docker-compose -f docker-compose.prod.yml logs -f frontend
+docker-compose -f docker-compose.prod.yml logs -f backend
+docker-compose -f docker-compose.prod.yml logs -f postgres
 ```
 
 ---
@@ -112,7 +120,7 @@ docker-compose -f docker-compose.prod.yml logs -f frontend
 
 Abra no navegador:
 ```
-http://95.111.238.203:4321
+http://95.111.238.203:3041
 ```
 
 ---
@@ -143,12 +151,12 @@ docker image prune -a
 
 ## 🔍 Troubleshooting
 
-### Porta 4321 já em uso
+### Porta 3041 já em uso
 
 Mude a porta no `docker-compose.prod.yml`:
 ```yaml
 ports:
-  - "8080:4321"  # Acesse http://95.111.238.203:8080
+  - "8080:80"  # Acesse http://95.111.238.203:8080
 ```
 
 ### Container não inicia
@@ -156,6 +164,8 @@ ports:
 ```bash
 # Ver erro detalhado
 docker-compose -f docker-compose.prod.yml logs frontend
+docker-compose -f docker-compose.prod.yml logs backend
+docker-compose -f docker-compose.prod.yml logs postgres
 
 # Verificar se há problema de permissão
 docker-compose -f docker-compose.prod.yml down -v
@@ -176,31 +186,9 @@ docker-compose -f docker-compose.prod.yml up -d --build
 ## 🔒 Dicas de Segurança
 
 1. **Usar senha SSH forte** ou configurar chaves SSH
-2. **Firewall**: Liberar apenas portas necessárias (4321, 22)
+2. **Firewall**: Liberar apenas portas necessárias (3041, 22)
 3. **Certificado SSL**: Usar nginx como reverse proxy com Let's Encrypt
 4. **Variáveis sensíveis**: Nunca commitar `.env` no Git
-
----
-
-## 📦 Próximos Passos (Opcional)
-
-### Usar Nginx como Reverse Proxy
-
-Crie `nginx.conf`:
-```nginx
-server {
-    listen 80;
-    server_name seu-dominio.com;
-
-    location / {
-        proxy_pass http://localhost:4321;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-Rode nginx em Docker ao lado da app.
 
 ### Auto-restart com Systemd
 

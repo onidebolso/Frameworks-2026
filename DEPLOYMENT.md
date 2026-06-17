@@ -84,15 +84,23 @@ Na VM:
 cd ~/projects/frameworks-2026
 
 # Criar arquivo .env
-cat > y/.env << EOF
-PUBLIC_SUPABASE_URL=https://seu-project.supabase.co
-PUBLIC_SUPABASE_ANON_KEY=sua-anon-key
+cat > y/.env << 'EOF'
+# Banco atual (local no compose)
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/frameworks
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=frameworks
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+
+# Placeholders para manter compatibilidade (opcional)
+PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
+PUBLIC_SUPABASE_ANON_KEY=placeholder-key
 EOF
 ```
 
-**⚠️ Importante:** Substitua os valores com suas credenciais reais do Supabase.
-
-Se você não tiver credenciais do Supabase ainda, o Docker ainda vai funcionar com valores padrão (placeholder), mas a funcionalidade de Supabase não estará disponível até que você configure as credenciais reais.
+**⚠️ Importante:** O banco ativo atual é o PostgreSQL local da stack Docker (`postgres`).
+As variáveis `PUBLIC_SUPABASE_*` ficam apenas como compatibilidade e podem permanecer em placeholder.
 
 ---
 

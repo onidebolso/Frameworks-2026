@@ -47,6 +47,7 @@ RUN chmod +x /usr/local/bin/healthcheck-*.sh
 
 # Copia apenas o output de produção compatível com o adapter node do Astro.
 COPY --from=builder /app/${APP_DIR}/dist ./dist
+COPY --from=builder /app/${APP_DIR}/node_modules ./node_modules
 
 USER node
 ENV NODE_ENV=production
